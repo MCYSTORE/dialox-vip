@@ -1,8 +1,8 @@
 // ============================================
-// DIALOX VIP - AI Analysis Pipeline (ENHANCED)
+// DIALOX VIP - AI Analysis Pipeline (FREE MODELS)
 // ETAPA 0: Tavily Search (búsqueda contextual profunda)
-// ETAPA 1: Gemini Flash (estructuración mejorada)
-// ETAPA 2: DeepSeek R1 Free (análisis final potente)
+// ETAPA 1: Qwen 2.5 72B (estructuración - potente)
+// ETAPA 2: Llama 3.3 8B (análisis final - rápido)
 // ============================================
 
 import { Sport } from './types';
@@ -13,14 +13,14 @@ import { Sport } from './types';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const TAVILY_API_URL = 'https://api.tavily.com/search';
 
-// Models (FREE via OpenRouter)
-const GEMINI_MODEL = 'google/gemini-2.0-flash-exp:free'; // Estructuración
-const DEEPSEEK_MODEL = 'deepseek/deepseek-r1-0528:free'; // Análisis final
+// Models (FREE via OpenRouter - No credits required)
+const QWEN_MODEL = 'qwen/qwen-2.5-72b-instruct:free'; // Estructuración (72B - potente)
+const LLAMA_MODEL = 'meta-llama/llama-3.3-8b-instruct:free'; // Análisis final (8B - rápido)
 
 // Timeouts (in milliseconds)
 const TAVILY_TIMEOUT = 15000; // 15 seconds per search
-const GEMINI_TIMEOUT = 30000; // 30 seconds
-const DEEPSEEK_TIMEOUT = 90000; // 90 seconds
+const QWEN_TIMEOUT = 45000; // 45 seconds (model is larger)
+const LLAMA_TIMEOUT = 60000; // 60 seconds
 
 // ============================================
 // DEBUG: API Keys Status
@@ -35,13 +35,14 @@ const getApiKeyStatus = () => {
 };
 
 console.log('[PIPELINE] API Keys status:', getApiKeyStatus());
+console.log('[PIPELINE] Models: Qwen 2.5 72B (structuring) + Llama 3.3 8B (analysis)');
 
 // ============================================
 // SYSTEM PROMPTS
 // ============================================
 
-// System prompt para Gemini (Estructuración Mejorada)
-const GEMINI_SYSTEM_PROMPT = `Eres un extractor de datos deportivos de élite. Tu función es limpiar, estructurar y resumir información deportiva cruda para análisis cuantitativo. Debes ser preciso, conciso y eliminar todo ruido. Solo incluyes hechos verificables y explícitos. Nunca inventas ni asumes información no presente en el texto recibido.
+// System prompt para Qwen (Estructuración)
+const QWEN_SYSTEM_PROMPT = `Eres un extractor de datos deportivos de élite. Tu función es limpiar, estructurar y resumir información deportiva cruda para análisis cuantitativo. Debes ser preciso, conciso y eliminar todo ruido. Solo incluyes hechos verificables y explícitos. Nunca inventas ni asumes información no presente en el texto recibido.
 
 REGLAS:
 1. Extrae solo información explícita y verificable del contexto.
@@ -50,11 +51,11 @@ REGLAS:
 4. Elimina todo ruido y opiniones subjetivas.
 5. Responde SOLO con JSON válido, sin markdown ni explicaciones.`;
 
-// System prompt para DeepSeek R1 (Análisis Final Potente)
-const DEEPSEEK_SYSTEM_PROMPT = `Rol: Eres el Analista Quant Deportivo y Tipster VIP de Élite más preciso del mundo. Operas en la etapa final de un pipeline de IA de tres etapas:
+// System prompt para Llama (Análisis Final)
+const LLAMA_SYSTEM_PROMPT = `Rol: Eres el Analista Quant Deportivo y Tipster VIP de Élite más preciso del mundo. Operas en la etapa final de un pipeline de IA de tres etapas:
 1. Tavily realizó búsquedas web específicas para obtener noticias, lesiones, alineaciones y contexto.
-2. Gemini estructuró y limpió esa información en un JSON preciso con probabilidades implícitas.
-3. Tú, DeepSeek R1, realizas el análisis matemático y cuantitativo final usando exclusivamente ese JSON.
+2. Qwen estructuró y limpió esa información en un JSON preciso con probabilidades implícitas.
+3. Tú, Llama, realizas el análisis matemático y cuantitativo final usando exclusivamente ese JSON.
 
 MISIÓN:
 Detectar la mejor "Value Bet" del partido analizando:
@@ -169,7 +170,7 @@ VALIDACIONES ANTES DE RESPONDER:
 5. La confianza refleja honestamente la evidencia.`;
 
 // ============================================
-// ETAPA 0: Búsqueda Contextual con Tavily (Mejorada)
+// ETAPA 0: Búsqueda Contextual con Tavily
 // ============================================
 async function singleTavilySearch(query: string, apiKey: string): Promise<string[]> {
   const controller = new AbortController();
@@ -253,29 +254,23 @@ export async function searchWithTavily(params: {
   const queries: string[] = [];
 
   if (params.sport === 'soccer') {
-    // Primary search for soccer
     queries.push(
       `${params.homeTeam} vs ${params.awayTeam} ${params.league} preview noticias lesiones alineación titular forma reciente ${today}`
     );
-    // Secondary search for head to head
     queries.push(
       `${params.homeTeam} ${params.awayTeam} head to head estadísticas recientes goles últimos partidos`
     );
   } else if (params.sport === 'basketball') {
-    // Primary search for basketball
     queries.push(
       `${params.homeTeam} vs ${params.awayTeam} NBA preview lesiones bajas jugadores clave rotación ${today}`
     );
-    // Secondary search for performance
     queries.push(
       `${params.homeTeam} ${params.awayTeam} últimos partidos puntos anotados rendimiento ofensivo defensivo`
     );
   } else if (params.sport === 'baseball') {
-    // Primary search for baseball
     queries.push(
       `${params.homeTeam} vs ${params.awayTeam} MLB preview pitcher abridor bullpen clima estadísticas ${today}`
     );
-    // Secondary search for pitching stats
     queries.push(
       `${params.homeTeam} ${params.awayTeam} ERA WHIP batting average últimas salidas pitcher`
     );
@@ -310,9 +305,9 @@ export async function searchWithTavily(params: {
 }
 
 // ============================================
-// ETAPA 1: Estructuración con Gemini Flash (Mejorada)
+// ETAPA 1: Estructuración con Qwen 2.5 72B
 // ============================================
-export async function structureWithGemini(params: {
+export async function structureWithQwen(params: {
   homeTeam: string;
   awayTeam: string;
   league: string;
@@ -325,7 +320,7 @@ export async function structureWithGemini(params: {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
-    console.log('[GEMINI] OpenRouter API Key not configured');
+    console.log('[QWEN] OpenRouter API Key not configured');
     return generateMockStructuredContext(params);
   }
 
@@ -390,10 +385,10 @@ Si no hay información disponible para un campo, usa null. Nunca inventes datos.
 Calcula las probabilidades implícitas desde las cuotas usando la fórmula: 1/cuota * 100.`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT);
+  const timeoutId = setTimeout(() => controller.abort(), QWEN_TIMEOUT);
 
   try {
-    console.log('[GEMINI] Calling API for structuring...');
+    console.log('[QWEN] Calling API for structuring...');
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
@@ -403,9 +398,9 @@ Calcula las probabilidades implícitas desde las cuotas usando la fórmula: 1/cu
         'X-Title': 'Dialox VIP',
       },
       body: JSON.stringify({
-        model: GEMINI_MODEL,
+        model: QWEN_MODEL,
         messages: [
-          { role: 'system', content: GEMINI_SYSTEM_PROMPT },
+          { role: 'system', content: QWEN_SYSTEM_PROMPT },
           { role: 'user', content: userPrompt },
         ],
         max_tokens: 2000,
@@ -417,37 +412,37 @@ Calcula las probabilidades implícitas desde las cuotas usando la fórmula: 1/cu
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.error('[GEMINI] API error:', response.status);
+      console.error('[QWEN] API error:', response.status);
       const errorText = await response.text();
-      console.error('[GEMINI] Error body:', errorText);
+      console.error('[QWEN] Error body:', errorText);
       return generateMockStructuredContext(params);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
 
-    console.log('[GEMINI] Response length:', content.length);
-    console.log('[GEMINI] Response preview:', content.substring(0, 200));
+    console.log('[QWEN] Response length:', content.length);
+    console.log('[QWEN] Response preview:', content.substring(0, 200));
 
     return cleanJsonResponse(content);
 
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error('[GEMINI] Timeout exceeded');
+      console.error('[QWEN] Timeout exceeded');
     } else {
-      console.error('[GEMINI] Error:', error);
+      console.error('[QWEN] Error:', error);
     }
     return generateMockStructuredContext(params);
   }
 }
 
 // ============================================
-// ETAPA 2: Análisis Final con DeepSeek R1 (Mejorado)
+// ETAPA 2: Análisis Final con Llama 3.3 8B
 // ============================================
-async function callDeepSeek(userPrompt: string, apiKey: string): Promise<string> {
+async function callLlama(userPrompt: string, apiKey: string): Promise<string> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), DEEPSEEK_TIMEOUT);
+  const timeoutId = setTimeout(() => controller.abort(), LLAMA_TIMEOUT);
 
   try {
     const response = await fetch(OPENROUTER_API_URL, {
@@ -459,9 +454,9 @@ async function callDeepSeek(userPrompt: string, apiKey: string): Promise<string>
         'X-Title': 'Dialox VIP',
       },
       body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
+        model: LLAMA_MODEL,
         messages: [
-          { role: 'system', content: DEEPSEEK_SYSTEM_PROMPT },
+          { role: 'system', content: LLAMA_SYSTEM_PROMPT },
           { role: 'user', content: userPrompt },
         ],
         max_tokens: 2500,
@@ -473,17 +468,17 @@ async function callDeepSeek(userPrompt: string, apiKey: string): Promise<string>
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      console.error('[DEEPSEEK] API error:', response.status);
+      console.error('[LLAMA] API error:', response.status);
       const errorText = await response.text();
-      console.error('[DEEPSEEK] Error body:', errorText);
-      throw new Error(`DeepSeek API error: ${response.status}`);
+      console.error('[LLAMA] Error body:', errorText);
+      throw new Error(`Llama API error: ${response.status}`);
     }
 
     const data = await response.json();
     const rawContent = data.choices?.[0]?.message?.content || '';
 
-    console.log('[DEEPSEEK] Raw response length:', rawContent.length);
-    console.log('[DEEPSEEK] Raw response preview:', rawContent.substring(0, 200));
+    console.log('[LLAMA] Raw response length:', rawContent.length);
+    console.log('[LLAMA] Raw response preview:', rawContent.substring(0, 200));
 
     return cleanJsonResponse(rawContent);
 
@@ -493,7 +488,7 @@ async function callDeepSeek(userPrompt: string, apiKey: string): Promise<string>
   }
 }
 
-export async function analyzeWithDeepSeek(params: {
+export async function analyzeWithLlama(params: {
   homeTeam: string;
   awayTeam: string;
   league: string;
@@ -505,7 +500,7 @@ export async function analyzeWithDeepSeek(params: {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
-    console.log('[DEEPSEEK] OpenRouter API Key not configured');
+    console.log('[LLAMA] OpenRouter API Key not configured');
     return generateMockAnalysis(params);
   }
 
@@ -516,21 +511,21 @@ ${params.structuredContext}
 Recuerda: Devuelve SOLO el JSON con tu análisis siguiendo el esquema obligatorio. Sin texto adicional, sin markdown, sin bloques de código.`;
 
   try {
-    console.log('[DEEPSEEK] Calling API for final analysis (attempt 1)...');
-    let result = await callDeepSeek(userPrompt, apiKey);
-    console.log('[DEEPSEEK] Analysis complete.');
+    console.log('[LLAMA] Calling API for final analysis (attempt 1)...');
+    let result = await callLlama(userPrompt, apiKey);
+    console.log('[LLAMA] Analysis complete.');
     return result;
   } catch (error) {
-    console.error('[DEEPSEEK] First attempt failed, retrying...');
+    console.error('[LLAMA] First attempt failed, retrying...');
 
     // Retry once
     try {
-      console.log('[DEEPSEEK] Calling API for final analysis (attempt 2)...');
-      let result = await callDeepSeek(userPrompt, apiKey);
-      console.log('[DEEPSEEK] Analysis complete on retry.');
+      console.log('[LLAMA] Calling API for final analysis (attempt 2)...');
+      let result = await callLlama(userPrompt, apiKey);
+      console.log('[LLAMA] Analysis complete on retry.');
       return result;
     } catch (retryError) {
-      console.error('[DEEPSEEK] Retry failed:', retryError);
+      console.error('[LLAMA] Retry failed:', retryError);
       return generateMockAnalysis(params);
     }
   }
@@ -552,28 +547,29 @@ export async function runAnalysisPipeline(params: {
   source: 'ai' | 'mock';
 }> {
   console.log('[PIPELINE] ========================================');
-  console.log('[PIPELINE] Starting 3-stage ENHANCED analysis pipeline');
+  console.log('[PIPELINE] Starting 3-stage FREE analysis pipeline');
   console.log('[PIPELINE] Match:', `${params.homeTeam} vs ${params.awayTeam}`);
   console.log('[PIPELINE] Sport:', params.sport);
+  console.log('[PIPELINE] Models: Qwen 2.5 72B + Llama 3.3 8B');
   console.log('[PIPELINE] ========================================');
 
-  // ETAPA 0: Búsqueda con Tavily (deep search)
+  // ETAPA 0: Búsqueda con Tavily
   console.log('[PIPELINE] Stage 0: Tavily deep search...');
   const { report: searchReport, contexto_disponible } = await searchWithTavily(params);
   console.log('[PIPELINE] Stage 0 complete. Context available:', contexto_disponible);
 
-  // ETAPA 1: Estructuración con Gemini
-  console.log('[PIPELINE] Stage 1: Gemini structuring...');
-  const structuredContext = await structureWithGemini({
+  // ETAPA 1: Estructuración con Qwen
+  console.log('[PIPELINE] Stage 1: Qwen structuring...');
+  const structuredContext = await structureWithQwen({
     ...params,
     searchReport,
     contexto_disponible,
   });
   console.log('[PIPELINE] Stage 1 complete.');
 
-  // ETAPA 2: Análisis con DeepSeek
-  console.log('[PIPELINE] Stage 2: DeepSeek analysis...');
-  const analysis = await analyzeWithDeepSeek({
+  // ETAPA 2: Análisis con Llama
+  console.log('[PIPELINE] Stage 2: Llama analysis...');
+  const analysis = await analyzeWithLlama({
     ...params,
     structuredContext,
   });
@@ -601,11 +597,10 @@ export async function runAnalysisPipeline(params: {
 function cleanJsonResponse(content: string): string {
   let cleaned = content.trim();
 
-  // Remove DeepSeek R1 reasoning tags
+  // Remove thinking tags
   cleaned = cleaned.replace(/<think[^>]*>[\s\S]*?<\s*\/\s*think\s*>/gi, '');
   cleaned = cleaned.replace(/<reasoning[^>]*>[\s\S]*?<\s*\/\s*reasoning\s*>/gi, '');
   cleaned = cleaned.replace(/<\|[^|]*\|>/gi, '');
-  cleaned = cleaned.replace(/ occurred[\s\S]*?<\s*\/\s*think\s*>/gi, '');
 
   // Find JSON object
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
@@ -701,12 +696,10 @@ function generateMockAnalysis(params: {
       justificacion: `Análisis basado únicamente en cuotas. ${favorite} tiene probabilidad implícita del ${impliedProb}%. Sin contexto adicional disponible.`,
     },
     mercados_especificos: {
-      ambos_anotan: params.sport === 'soccer' ? { valor: null, confianza: 0 } : { valor: null, confianza: 0 },
-      corners_prevision: params.sport === 'soccer' ? { valor: null, confianza: 0 } : { valor: null, confianza: 0 },
-      valor_extra_basket_baseball: params.sport !== 'soccer'
-        ? { mercado: null, valor: null, confianza: 0 }
-        : { mercado: null, valor: null, confianza: 0 },
+      ambos_anotan: { valor: null, confianza: 0 },
+      corners_prevision: { valor: null, confianza: 0 },
+      valor_extra_basket_baseball: { mercado: null, valor: null, confianza: 0 },
     },
-    analisis_vip: `Análisis en modo simulación. Configure TAVILY_API_KEY y OPENROUTER_API_KEY para obtener análisis con IA real. El favorito según cuotas es ${favorite} con probabilidad implícita del ${impliedProb}%. Sin contexto de lesiones, forma reciente ni hechos relevantes disponibles.`,
+    analisis_vip: `Análisis en modo simulación. Configure TAVILY_API_KEY y OPENROUTER_API_KEY para obtener análisis con IA real. El favorito según cuotas es ${favorite} con probabilidad implícita del ${impliedProb}%.`,
   });
 }
