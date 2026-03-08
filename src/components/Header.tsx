@@ -1,5 +1,6 @@
 'use client';
 
+// v2.0 - Optimización de carga Triple Corona
 import { DataStatus } from '@/lib/types';
 
 interface HeaderProps {
