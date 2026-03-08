@@ -30,7 +30,7 @@ export function Header({ status, lastUpdate }: HeaderProps) {
               Dialox VIP
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Terminal de pronósticos
+              Tus 3 mejores picks del día
             </p>
           </div>
           
@@ -60,7 +60,7 @@ export function Header({ status, lastUpdate }: HeaderProps) {
             Dialox VIP
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            Terminal personal de pronósticos
+            Tus 3 mejores picks del día
           </p>
         </div>
         

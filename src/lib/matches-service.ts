@@ -1,42 +1,52 @@
 // ============================================
 // DIALOX VIP - Unified Matches Service
-// Combines API Football + The Odds API
-// with fallback to mock data
+// Optimizado para minimizar consumo de Odds API
 // ============================================
 
 import { Match, Sport } from './types';
 import { matches as mockMatches } from './data';
 import { 
-  fetchFootballFixtures, 
-  transformFootballFixture,
-} from './api-football';
-import { 
-  fetchAllOdds,
+  fetchOddsForSport,
+  fetchOddsForMatch,
   transformOddsMatch,
   extractBestOdds,
+  getAPICounterStatus,
+  canMakeAPICall,
+  OddsAPIMatch
 } from './odds-api';
-import type { OddsAPIMatch } from './odds-api';
 
 // ============================================
-// MAIN FUNCTION: Get all matches
+// RESULT TYPE
+// ============================================
+export interface MatchesResult {
+  matches: Match[];
+  source: 'live' | 'cached' | 'mock';
+  apiCallsUsed: number;
+  apiCallsRemaining: number;
+  limitReached?: boolean;
+}
+
+// ============================================
+// NIVEL 1: OBTENER CARTELERA GENERAL
+// Usa caché de 60 min, solo datos básicos
 // ============================================
 export async function getMatches(
   sport?: Sport | 'all',
   query?: string
-): Promise<{ matches: Match[]; source: 'live' | 'cached' | 'mock' }> {
+): Promise<MatchesResult> {
+  const apiStatus = getAPICounterStatus();
+  
   try {
-    // Try to fetch from real APIs
-    const liveMatches = await fetchLiveMatches();
+    // Intentar obtener partidos desde Odds API
+    const liveMatches = await fetchLiveMatchesOptimized();
     
     if (liveMatches.length > 0) {
       let filtered = liveMatches;
       
-      // Apply sport filter
       if (sport && sport !== 'all') {
         filtered = filtered.filter(m => m.league.sport === sport);
       }
       
-      // Apply search filter
       if (query) {
         const q = query.toLowerCase();
         filtered = filtered.filter(m =>
@@ -46,13 +56,18 @@ export async function getMatches(
         );
       }
       
-      return { matches: filtered, source: 'live' };
+      return { 
+        matches: filtered, 
+        source: 'live',
+        apiCallsUsed: apiStatus.count,
+        apiCallsRemaining: apiStatus.remaining,
+      };
     }
   } catch (error) {
-    console.error('Error fetching live matches:', error);
+    console.error('[MATCHES-SERVICE] Error fetching live matches:', error);
   }
 
-  // Fallback to mock data
+  // Fallback a mock data
   let filtered = [...mockMatches];
   
   if (sport && sport !== 'all') {
@@ -68,64 +83,101 @@ export async function getMatches(
     );
   }
 
-  return { matches: filtered, source: 'mock' };
+  return { 
+    matches: filtered, 
+    source: 'mock',
+    apiCallsUsed: apiStatus.count,
+    apiCallsRemaining: apiStatus.remaining,
+  };
 }
 
 // ============================================
-// FETCH LIVE MATCHES FROM APIS
+// NIVEL 2: OBTENER CUOTAS PARA TOP 3
+// Solo para los partidos seleccionados
 // ============================================
-async function fetchLiveMatches(): Promise<Match[]> {
+export async function getOddsForTop3(
+  matchIds: string[]
+): Promise<Map<string, { home: number; draw: number | null; away: number }>> {
+  const oddsMap = new Map<string, { home: number; draw: number | null; away: number }>();
+  
+  // Verificar si podemos hacer llamadas
+  if (!canMakeAPICall()) {
+    console.warn('[MATCHES-SERVICE] Límite diario alcanzado, no se pueden obtener cuotas actualizadas');
+    return oddsMap;
+  }
+  
+  // Obtener cuotas solo para los partidos especificados
+  for (const matchId of matchIds.slice(0, 3)) { // Máximo 3 partidos
+    try {
+      const oddsMatch = await fetchOddsForMatch(matchId);
+      if (oddsMatch) {
+        const odds = extractBestOdds(oddsMatch);
+        oddsMap.set(matchId, {
+          home: odds.home,
+          draw: odds.draw,
+          away: odds.away,
+        });
+      }
+    } catch (error) {
+      console.error(`[MATCHES-SERVICE] Error fetching odds for ${matchId}:`, error);
+    }
+  }
+  
+  return oddsMap;
+}
+
+// ============================================
+// FETCH OPTIMIZADO DE PARTIDOS
+// ============================================
+async function fetchLiveMatchesOptimized(): Promise<Match[]> {
   const matches: Match[] = [];
   
-  // Fetch odds from The Odds API (includes all sports)
-  const oddsMatches = await fetchAllOdds();
-  
-  // Group by sport
-  const soccerMatches: OddsAPIMatch[] = [];
-  const basketballMatches: OddsAPIMatch[] = [];
-  const baseballMatches: OddsAPIMatch[] = [];
-  
-  for (const match of oddsMatches) {
-    if (match.sport_key.includes('soccer')) {
-      soccerMatches.push(match);
-    } else if (match.sport_key.includes('basketball') || match.sport_key.includes('nba')) {
-      basketballMatches.push(match);
-    } else if (match.sport_key.includes('baseball') || match.sport_key.includes('mlb')) {
-      baseballMatches.push(match);
-    }
+  // Verificar límite antes de empezar
+  if (!canMakeAPICall()) {
+    console.warn('[MATCHES-SERVICE] Límite diario de API alcanzado');
+    return matches;
   }
   
-  // Transform soccer matches
-  for (const match of soccerMatches) {
+  // Solo obtener de las ligas principales para reducir llamadas
+  const prioritySports = [
+    'soccer_epl',        // Premier League
+    'basketball_nba',    // NBA
+    'baseball_mlb',      // MLB
+  ];
+  
+  // Obtener eventos de cada deporte
+  for (const sportKey of prioritySports) {
+    if (!canMakeAPICall()) {
+      console.warn('[MATCHES-SERVICE] Límite alcanzado, deteniendo fetch');
+      break;
+    }
+    
     try {
-      const transformed = transformOddsMatch(match, 'soccer');
-      matches.push(transformed as Match);
-    } catch (e) {
-      console.error('Error transforming soccer match:', e);
+      const oddsMatches = await fetchOddsForSport(sportKey);
+      
+      // Determinar deporte
+      let sport: 'soccer' | 'basketball' | 'baseball' = 'soccer';
+      if (sportKey.includes('basketball') || sportKey.includes('nba')) {
+        sport = 'basketball';
+      } else if (sportKey.includes('baseball') || sportKey.includes('mlb')) {
+        sport = 'baseball';
+      }
+      
+      // Transformar partidos
+      for (const match of oddsMatches) {
+        try {
+          const transformed = transformOddsMatch(match, sport);
+          matches.push(transformed as Match);
+        } catch (e) {
+          console.error('[MATCHES-SERVICE] Error transforming match:', e);
+        }
+      }
+    } catch (error) {
+      console.error(`[MATCHES-SERVICE] Error fetching ${sportKey}:`, error);
     }
   }
   
-  // Transform basketball matches
-  for (const match of basketballMatches) {
-    try {
-      const transformed = transformOddsMatch(match, 'basketball');
-      matches.push(transformed as Match);
-    } catch (e) {
-      console.error('Error transforming basketball match:', e);
-    }
-  }
-  
-  // Transform baseball matches
-  for (const match of baseballMatches) {
-    try {
-      const transformed = transformOddsMatch(match, 'baseball');
-      matches.push(transformed as Match);
-    } catch (e) {
-      console.error('Error transforming baseball match:', e);
-    }
-  }
-  
-  // Sort: live first, then by time
+  // Ordenar: live primero, luego por hora
   matches.sort((a, b) => {
     if (a.isLive && !b.isLive) return -1;
     if (!a.isLive && b.isLive) return 1;
@@ -136,48 +188,32 @@ async function fetchLiveMatches(): Promise<Match[]> {
 }
 
 // ============================================
-// ENRICH WITH FOOTBALL DATA (optional)
+// ENRIQUECER CON DATOS DE FÚTBOL (opcional)
 // ============================================
 export async function enrichFootballMatches(baseMatches: Match[]): Promise<Match[]> {
-  try {
-    // Fetch live fixtures from API Football
-    const liveFixtures = await fetchFootballFixtures(undefined, true);
-    const todayFixtures = await fetchFootballFixtures();
-    
-    const allFixtures = [...liveFixtures, ...todayFixtures];
-    
-    // Create a map for quick lookup by team name
-    const enrichedMap = new Map<string, typeof baseMatches[0]>();
-    
-    for (const match of baseMatches) {
-      enrichedMap.set(match.id, match);
-    }
-    
-    // Enrich with fixture data where possible
-    for (const fixture of allFixtures) {
-      const homeTeam = fixture.teams.home.name;
-      const awayTeam = fixture.teams.away.name;
-      
-      // Find matching match by team names
-      const matchingMatch = baseMatches.find(m => 
-        m.homeTeam.name.toLowerCase().includes(homeTeam.toLowerCase()) ||
-        m.awayTeam.name.toLowerCase().includes(homeTeam.toLowerCase()) ||
-        m.homeTeam.name.toLowerCase().includes(awayTeam.toLowerCase()) ||
-        m.awayTeam.name.toLowerCase().includes(awayTeam.toLowerCase())
-      );
-      
-      if (matchingMatch) {
-        // Update with fixture data
-        const transformed = transformFootballFixture(fixture);
-        matchingMatch.status = transformed.status;
-        matchingMatch.score = transformed.score;
-        matchingMatch.isLive = transformed.isLive;
-      }
-    }
-    
-    return Array.from(enrichedMap.values());
-  } catch (error) {
-    console.error('Error enriching football matches:', error);
+  // Esta función se mantiene para compatibilidad
+  // Pero ahora solo se usa si hay créditos disponibles
+  if (!canMakeAPICall()) {
+    console.warn('[MATCHES-SERVICE] No enriqueciendo partidos - límite API alcanzado');
     return baseMatches;
   }
+  
+  // Por ahora, retornar sin cambios para no gastar más créditos
+  return baseMatches;
+}
+
+// ============================================
+// OBTENER ESTADO DE CUOTA DE API
+// ============================================
+export function getAPIStatus(): {
+  used: number;
+  remaining: number;
+  limitReached: boolean;
+} {
+  const status = getAPICounterStatus();
+  return {
+    used: status.count,
+    remaining: status.remaining,
+    limitReached: status.count >= status.max,
+  };
 }

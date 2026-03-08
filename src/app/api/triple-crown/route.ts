@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getMatches } from '@/lib/matches-service';
 import { runAnalysisPipeline } from '@/lib/openrouter-service';
-import { selectTripleCrownPicks } from '@/lib/triple-crown';
-import { Match, Analysis, CacheEntry } from '@/lib/types';
+import { selectBestMatches, selectTripleCrownPicks } from '@/lib/triple-crown';
+import { Match, Analysis, CacheEntry, EdgeDetectado, MercadosEspecificos } from '@/lib/types';
 
 // ============================================
 // DIALOX VIP - Triple Crown API
-// Genera los 3 mejores picks del día
+// Selecciona y analiza los 3 mejores picks del día
 // ============================================
 
-// Cache para análisis (evitar re-analizar)
+// Cache para análisis
 const analysisCache = new Map<string, CacheEntry<Analysis>>();
-const ANALYSIS_CACHE_TTL = 10 * 60 * 1000; // 10 minutos
+const ANALYSIS_CACHE_TTL = 45 * 60 * 1000; // 45 minutos
 
 function getCachedAnalysis(key: string): Analysis | null {
   const entry = analysisCache.get(key);
@@ -26,16 +26,83 @@ function setCachedAnalysis(key: string, data: Analysis): void {
   analysisCache.set(key, { data, timestamp: Date.now(), ttl: ANALYSIS_CACHE_TTL });
 }
 
+// Parse confidence to ensure it's 1-10
+function parseConfidence(value: unknown): number {
+  if (typeof value === 'number') {
+    if (value > 10) {
+      return Math.min(Math.max(Math.round(value / 10), 1), 10);
+    }
+    return Math.min(Math.max(Math.round(value), 1), 10);
+  }
+  return 5;
+}
+
+// Parse edge detection
+function parseEdgeDetectado(data: unknown): EdgeDetectado {
+  if (!data || typeof data !== 'object') {
+    return { mercado: null, prob_implicita: null, prob_estimada: null, edge_pct: null };
+  }
+  const edge = data as Record<string, unknown>;
+  return {
+    mercado: typeof edge.mercado === 'string' ? edge.mercado : null,
+    prob_implicita: typeof edge.prob_implicita === 'number' ? edge.prob_implicita : null,
+    prob_estimada: typeof edge.prob_estimada === 'number' ? edge.prob_estimada : null,
+    edge_pct: typeof edge.edge_pct === 'number' ? edge.edge_pct : null,
+  };
+}
+
+// Parse mercados específicos
+function parseMercadosEspecificos(data: unknown, sport: string): MercadosEspecificos {
+  const defaultResult: MercadosEspecificos = {
+    ambos_anotan: { valor: null, confianza: 0 },
+    corners_prevision: { valor: null, confianza: 0 },
+    valor_extra: { mercado: null, valor: null, confianza: 0 },
+  };
+
+  if (!data || typeof data !== 'object') return defaultResult;
+
+  const mercados = data as Record<string, unknown>;
+
+  if (mercados.ambos_anotan && typeof mercados.ambos_anotan === 'object') {
+    const aa = mercados.ambos_anotan as Record<string, unknown>;
+    defaultResult.ambos_anotan = {
+      valor: typeof aa.valor === 'string' ? aa.valor : null,
+      confianza: parseConfidence(aa.confianza),
+    };
+  }
+
+  if (mercados.corners_prevision && typeof mercados.corners_prevision === 'object') {
+    const cp = mercados.corners_prevision as Record<string, unknown>;
+    defaultResult.corners_prevision = {
+      valor: typeof cp.valor === 'string' ? cp.valor : null,
+      confianza: parseConfidence(cp.confianza),
+    };
+  }
+
+  if (mercados.valor_extra && typeof mercados.valor_extra === 'object') {
+    const ve = mercados.valor_extra as Record<string, unknown>;
+    defaultResult.valor_extra = {
+      mercado: typeof ve.mercado === 'string' ? ve.mercado : null,
+      valor: typeof ve.valor === 'string' ? ve.valor : null,
+      confianza: parseConfidence(ve.confianza),
+    };
+  }
+
+  return defaultResult;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const forceRefresh = searchParams.get('refresh') === 'true';
   
+  console.log('[TRIPLE-CROWN] Iniciando selección de Top 3...');
+  
   try {
-    // Obtener partidos
+    // Obtener todos los partidos
     const matchesResult = await getMatches('all', '');
-    const matches = matchesResult.matches;
+    const allMatches = matchesResult.matches;
     
-    if (matches.length === 0) {
+    if (allMatches.length === 0) {
       return NextResponse.json({
         success: true,
         data: {
@@ -44,126 +111,165 @@ export async function GET(request: Request) {
           picks: [],
           generated_at: new Date().toISOString(),
         },
-        message: 'No hay partidos disponibles para analizar',
+        message: 'No hay partidos disponibles',
       });
     }
     
-    // Analizar partidos (máximo 10 para evitar timeout)
-    const matchesToAnalyze = matches.slice(0, 10);
+    console.log(`[TRIPLE-CROWN] Total partidos disponibles: ${allMatches.length}`);
+    
+    // ETAPA 1: Selección inteligente de los 3 mejores partidos
+    const selectionScores = selectBestMatches(allMatches);
+    const topMatches = selectionScores.slice(0, 3).map(s => {
+      const match = allMatches.find(m => m.id === s.matchId);
+      return { match: match!, score: s };
+    }).filter(t => t.match);
+    
+    console.log(`[TRIPLE-CROWN] Top 3 seleccionados:`, topMatches.map(t => 
+      `${t.match.homeTeam.name} vs ${t.match.awayTeam.name} (score: ${t.score.score})`
+    ));
+    
+    if (topMatches.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          date: new Date().toISOString().split('T')[0],
+          total_analyzed: allMatches.length,
+          picks: [],
+          generated_at: new Date().toISOString(),
+        },
+        message: 'No hay partidos que cumplan los criterios mínimos',
+      });
+    }
+    
+    // ETAPA 2: Análisis automático de los 3 mejores
+    const matchesToAnalyze = topMatches.map(t => t.match);
     const analyses = new Map<string, Analysis>();
     
-    // Analizar en paralelo (máximo 3 a la vez)
-    const batchSize = 3;
-    for (let i = 0; i < matchesToAnalyze.length; i += batchSize) {
-      const batch = matchesToAnalyze.slice(i, i + batchSize);
+    // Analizar en paralelo (los 3 a la vez)
+    const analysisPromises = matchesToAnalyze.map(async (match) => {
+      // Verificar caché
+      const cached = getCachedAnalysis(match.id);
+      if (cached && !forceRefresh) {
+        console.log(`[TRIPLE-CROWN] Usando análisis cacheado para ${match.id}`);
+        return { matchId: match.id, analysis: cached };
+      }
       
-      const batchPromises = batch.map(async (match) => {
-        // Verificar caché
-        const cached = getCachedAnalysis(match.id);
-        if (cached && !forceRefresh) {
-          return { matchId: match.id, analysis: cached };
+      console.log(`[TRIPLE-CROWN] Analizando: ${match.homeTeam.name} vs ${match.awayTeam.name}`);
+      
+      try {
+        const result = await runAnalysisPipeline({
+          homeTeam: match.homeTeam.name,
+          awayTeam: match.awayTeam.name,
+          league: match.league.name,
+          sport: match.league.sport,
+          startTime: match.startTime,
+          odds: {
+            home: match.odds.home,
+            draw: match.odds.draw,
+            away: match.odds.away,
+          },
+        });
+        
+        // Parsear análisis
+        let analysisData: Analysis;
+        
+        try {
+          const parsed = JSON.parse(result.analysis);
+          analysisData = {
+            id: `analysis-${match.id}`,
+            matchId: match.id,
+            timestamp: new Date().toISOString(),
+            deporte: parsed.deporte || match.league.sport,
+            equipos: parsed.equipos || `${match.homeTeam.name} vs ${match.awayTeam.name}`,
+            favorito_ganar: parsed.favorito_ganar || null,
+            marcador_estimado: parsed.marcador_estimado || 'N/A',
+            jugada_principal: {
+              mercado: parsed.jugada_principal?.mercado || 'Victoria Local',
+              cuota: parsed.jugada_principal?.cuota || match.odds.home,
+              confianza: parseConfidence(parsed.jugada_principal?.confianza),
+              justificacion: parsed.jugada_principal?.justificacion || 'Análisis no disponible',
+            },
+            edge_detectado: parseEdgeDetectado(parsed.edge_detectado),
+            mercados_especificos: parseMercadosEspecificos(parsed.mercados_especificos, match.league.sport),
+            analisis_vip: parsed.analisis_vip || 'Análisis no disponible',
+            contexto: result.searchReport || null,
+          };
+        } catch (parseError) {
+          console.error(`[TRIPLE-CROWN] Error parseando análisis:`, parseError);
+          // Fallback
+          analysisData = {
+            id: `analysis-${match.id}`,
+            matchId: match.id,
+            timestamp: new Date().toISOString(),
+            deporte: match.league.sport,
+            equipos: `${match.homeTeam.name} vs ${match.awayTeam.name}`,
+            favorito_ganar: null,
+            marcador_estimado: 'N/A',
+            jugada_principal: {
+              mercado: 'Victoria Local',
+              cuota: match.odds.home,
+              confianza: 5,
+              justificacion: 'Análisis en modo fallback',
+            },
+            edge_detectado: { mercado: null, prob_implicita: null, prob_estimada: null, edge_pct: null },
+            mercados_especificos: {
+              ambos_anotan: { valor: null, confianza: 0 },
+              corners_prevision: { valor: null, confianza: 0 },
+              valor_extra: { mercado: null, valor: null, confianza: 0 },
+            },
+            analisis_vip: result.searchReport || 'Análisis no disponible',
+            contexto: null,
+          };
         }
         
-        // Ejecutar pipeline de análisis
-        try {
-          const result = await runAnalysisPipeline({
-            homeTeam: match.homeTeam.name,
-            awayTeam: match.awayTeam.name,
-            league: match.league.name,
-            sport: match.league.sport,
-            startTime: match.startTime,
-            odds: {
-              home: match.odds.home,
-              draw: match.odds.draw,
-              away: match.odds.away,
-            },
-          });
-          
-          // Parsear análisis
-          let analysisData: Analysis;
-          
-          try {
-            const parsed = JSON.parse(result.analysis);
-            analysisData = {
-              id: `analysis-${match.id}`,
-              matchId: match.id,
-              timestamp: new Date().toISOString(),
-              deporte: parsed.deporte || match.league.sport,
-              equipos: parsed.equipos || `${match.homeTeam.name} vs ${match.awayTeam.name}`,
-              favorito_ganar: parsed.favorito_ganar || null,
-              marcador_estimado: parsed.marcador_estimado || 'N/A',
-              jugada_principal: parsed.jugada_principal || {
-                mercado: 'Victoria Local',
-                cuota: match.odds.home,
-                confianza: 50,
-                justificacion: 'Análisis no disponible',
-              },
-              mercados_especificos: parsed.mercados_especificos || {
-                ambos_anotan: { valor: null, confianza: 0 },
-                corners_prevision: { valor: null, confianza: 0 },
-                valor_extra_basket_baseball: { mercado: null, valor: null, confianza: 0 },
-              },
-              analisis_vip: parsed.analisis_vip || result.searchReport,
-            };
-          } catch {
-            // Fallback si el JSON no es válido
-            analysisData = {
-              id: `analysis-${match.id}`,
-              matchId: match.id,
-              timestamp: new Date().toISOString(),
-              deporte: match.league.sport,
-              equipos: `${match.homeTeam.name} vs ${match.awayTeam.name}`,
-              favorito_ganar: null,
-              marcador_estimado: 'N/A',
-              jugada_principal: {
-                mercado: 'Victoria Local',
-                cuota: match.odds.home,
-                confianza: 50,
-                justificacion: 'Análisis en modo fallback',
-              },
-              mercados_especificos: {
-                ambos_anotan: { valor: null, confianza: 0 },
-                corners_prevision: { valor: null, confianza: 0 },
-                valor_extra_basket_baseball: { mercado: null, valor: null, confianza: 0 },
-              },
-              analisis_vip: result.searchReport || 'Análisis no disponible',
-            };
-          }
-          
-          // Cachear
-          setCachedAnalysis(match.id, analysisData);
-          
-          return { matchId: match.id, analysis: analysisData };
-        } catch (error) {
-          console.error(`Error analyzing match ${match.id}:`, error);
-          return null;
-        }
-      });
-      
-      const batchResults = await Promise.all(batchPromises);
-      
-      batchResults.forEach((result) => {
-        if (result) {
-          analyses.set(result.matchId, result.analysis);
-        }
-      });
-    }
+        // Cachear
+        setCachedAnalysis(match.id, analysisData);
+        
+        return { matchId: match.id, analysis: analysisData };
+      } catch (error) {
+        console.error(`[TRIPLE-CROWN] Error analizando ${match.id}:`, error);
+        return null;
+      }
+    });
     
-    // Seleccionar los mejores picks
+    const analysisResults = await Promise.all(analysisPromises);
+    
+    analysisResults.forEach((result) => {
+      if (result) {
+        analyses.set(result.matchId, result.analysis);
+      }
+    });
+    
+    console.log(`[TRIPLE-CROWN] Análisis completados: ${analyses.size}/${matchesToAnalyze.length}`);
+    
+    // ETAPA 3: Crear CrownPicks
     const tripleCrownResult = await selectTripleCrownPicks(
       matchesToAnalyze,
       analyses,
-      50 // Score mínimo
+      40 // Score mínimo
     );
+    
+    // Agregar scores de selección
+    const enhancedPicks = tripleCrownResult.picks.map(pick => {
+      const selectionScore = selectionScores.find(s => s.matchId === pick.matchId);
+      return {
+        ...pick,
+        selection_score: selectionScore?.score || 0,
+      };
+    });
     
     return NextResponse.json({
       success: true,
-      data: tripleCrownResult,
+      data: {
+        ...tripleCrownResult,
+        picks: enhancedPicks,
+        selection_scores: selectionScores.slice(0, 3),
+      },
       cached: false,
     });
     
   } catch (error) {
-    console.error('Triple Crown error:', error);
+    console.error('[TRIPLE-CROWN] Error:', error);
     
     return NextResponse.json({
       success: false,

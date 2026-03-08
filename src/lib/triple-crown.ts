@@ -17,10 +17,10 @@ export interface CrownPick {
   resumen: string;
   score_breakdown: {
     edge_score: number;
-    report_score: number;
+    liquidity_score: number;
+    league_score: number;
+    timing_score: number;
     confidence_score: number;
-    consistency_score: number;
-    penalty: number;
   };
 }
 
@@ -31,174 +31,204 @@ export interface TripleCrownResult {
   generated_at: string;
 }
 
+export interface MatchSelectionScore {
+  matchId: string;
+  score: number;
+  edge_implicito: number;
+  liquidez_mercado: number;
+  liga_top_bonus: number;
+  horario_conveniente: number;
+}
+
 // ============================================
-// SCORING FACTORS
+// LIGAS TOP
+// ============================================
+const TOP_LEAGUES = [
+  'premier league', 'epl', 'la liga', 'serie a', 'bundesliga', 
+  'ligue 1', 'nba', 'mlb', 'champions league', 'europa league'
+];
+
+// ============================================
+// FUNCIÓN PRINCIPAL: SELECCIÓN INTELIGENTE
+// ============================================
+
+/**
+ * Selecciona los 3 mejores partidos basándose en el score compuesto
+ * Fórmula: score = (edge_implicito * 0.40) + (liquidez * 0.25) + (liga_top * 0.20) + (horario * 0.15)
+ */
+export function selectBestMatches(matches: Match[]): MatchSelectionScore[] {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const fourHoursFromNow = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+  const scores: MatchSelectionScore[] = [];
+
+  for (const match of matches) {
+    const matchTime = new Date(match.startTime);
+    
+    // Solo partidos de hoy
+    if (matchTime < today || matchTime > endOfDay) continue;
+    
+    // Solo partidos programados o en vivo (no finalizados)
+    if (match.status === 'finished' || match.status === 'cancelled') continue;
+
+    // 1. Edge Implícito (0-100)
+    const homeOdds = match.odds.home;
+    const awayOdds = match.odds.away;
+    const drawOdds = match.odds.draw;
+    
+    // Probabilidad implícita del favorito
+    const minOdds = Math.min(homeOdds, awayOdds);
+    const favoriteProb = (1 / minOdds) * 100;
+    
+    // Edge = diferencia entre prob del favorito y 50%
+    // Normalizado a 0-100 (mayor edge = mayor diferencia de 50%)
+    const edgeImplicito = Math.abs(favoriteProb - 50) * 2; // 0-100
+
+    // 2. Liquidez del Mercado (0-100)
+    let liquidezMercado = 100;
+    
+    // Penalizar cuotas extremas
+    if (minOdds < 1.20) liquidezMercado -= 40; // Favorito demasiado obvio
+    if (minOdds < 1.30) liquidezMercado -= 20;
+    if (homeOdds > 8.00 || awayOdds > 8.00) liquidezMercado -= 30; // Underdog extremo
+    if (homeOdds > 5.00 || awayOdds > 5.00) liquidezMercado -= 15;
+    
+    // Cuotas equilibradas son mejores
+    const oddsDiff = Math.abs(homeOdds - awayOdds);
+    if (oddsDiff < 0.50) liquidezMercado += 10; // Muy equilibrado
+    if (oddsDiff < 1.00) liquidezMercado += 5;
+    
+    liquidezMercado = Math.max(0, Math.min(100, liquidezMercado));
+
+    // 3. Liga Top Bonus (0-100)
+    let ligaTopBonus = 0;
+    const leagueName = match.league.name.toLowerCase();
+    
+    for (const topLeague of TOP_LEAGUES) {
+      if (leagueName.includes(topLeague)) {
+        ligaTopBonus = 100;
+        break;
+      }
+    }
+    
+    // Bonus parcial para ligas conocidas
+    if (ligaTopBonus === 0) {
+      if (match.league.country === 'Inglaterra' || 
+          match.league.country === 'España' || 
+          match.league.country === 'Italia' ||
+          match.league.country === 'Alemania' ||
+          match.league.country === 'USA') {
+        ligaTopBonus = 60;
+      }
+    }
+
+    // 4. Horario Conveniente (0-100)
+    let horarioConveniente = 0;
+    
+    if (match.isLive) {
+      horarioConveniente = 100; // En vivo es máximo interés
+    } else if (matchTime <= fourHoursFromNow) {
+      horarioConveniente = 100; // Próximo a empezar
+    } else if (matchTime <= new Date(now.getTime() + 6 * 60 * 60 * 1000)) {
+      horarioConveniente = 70;
+    } else if (matchTime <= new Date(now.getTime() + 12 * 60 * 60 * 1000)) {
+      horarioConveniente = 40;
+    } else {
+      horarioConveniente = 20;
+    }
+
+    // SCORE COMPUESTO
+    const score = (
+      edgeImplicito * 0.40 +
+      liquidezMercado * 0.25 +
+      ligaTopBonus * 0.20 +
+      horarioConveniente * 0.15
+    );
+
+    scores.push({
+      matchId: match.id,
+      score: Math.round(score * 10) / 10,
+      edge_implicito: Math.round(edgeImplicito),
+      liquidez_mercado: Math.round(liquidezMercado),
+      liga_top_bonus: ligaTopBonus,
+      horario_conveniente: Math.round(horarioConveniente),
+    });
+  }
+
+  // Ordenar por score descendente
+  scores.sort((a, b) => b.score - a.score);
+
+  return scores;
+}
+
+// ============================================
+// SCORING PARA ANÁLISIS COMPLETO
 // ============================================
 
 interface ScoringFactors {
   edge_score: number;
-  report_score: number;
+  liquidity_score: number;
+  league_score: number;
+  timing_score: number;
   confidence_score: number;
-  consistency_score: number;
-  penalty: number;
-}
-
-// ============================================
-// FUNCIONES DE SCORING
-// ============================================
-
-/**
- * Calcula el edge (ventaja) contra la cuota implícita
- */
-function calculateEdgeScore(analysis: Analysis, match: Match): number {
-  const cuota = analysis.jugada_principal.cuota;
-  const confianza = analysis.jugada_principal.confianza;
-  
-  // Probabilidad implícita en la cuota
-  const probabilidadImplicita = (1 / cuota) * 100;
-  
-  // Edge = Confianza - Probabilidad implícita
-  const edge = confianza - probabilidadImplicita;
-  
-  // Normalizar a 0-30 puntos
-  if (edge >= 20) return 30;
-  if (edge >= 15) return 25;
-  if (edge >= 10) return 20;
-  if (edge >= 5) return 15;
-  if (edge >= 0) return Math.max(0, edge * 2);
-  
-  return Math.max(0, 10 + edge);
 }
 
 /**
- * Evalúa la calidad del reporte contextual
- */
-function calculateReportScore(analysis: Analysis): number {
-  const vipText = analysis.analisis_vip || '';
-  const justificacion = analysis.jugada_principal?.justificacion || '';
-  
-  let score = 10;
-  
-  // Factores contextuales positivos
-  const contextFactors = [
-    'lesión', 'lesionado', 'baja', 'sanción', 'suspendido',
-    'forma', 'racha', 'estadística', 'historial', 'h2h',
-    'clima', 'pitcher', 'rotación', 'motivación'
-  ];
-  
-  const combinedText = `${vipText} ${justificacion}`.toLowerCase();
-  
-  contextFactors.forEach(factor => {
-    if (combinedText.includes(factor)) {
-      score += 1.5;
-    }
-  });
-  
-  // Longitud del análisis
-  if (vipText.length > 200) score += 3;
-  if (vipText.length > 300) score += 2;
-  
-  // Penalización si es simulación
-  if (combinedText.includes('simulación') || combinedText.includes('fallback')) {
-    score -= 10;
-  }
-  
-  return Math.min(20, Math.max(0, score));
-}
-
-/**
- * Convierte la confianza del análisis a score
- */
-function calculateConfidenceScore(analysis: Analysis): number {
-  const confianza = analysis.jugada_principal?.confianza || 0;
-  
-  if (confianza >= 90) return 25;
-  if (confianza >= 80) return 22;
-  if (confianza >= 75) return 18;
-  if (confianza >= 70) return 15;
-  if (confianza >= 65) return 12;
-  if (confianza >= 60) return 8;
-  
-  return 5;
-}
-
-/**
- * Evalúa la consistencia del JSON de análisis
- */
-function calculateConsistencyScore(analysis: Analysis): number {
-  let score = 15;
-  
-  if (!analysis.deporte) score -= 3;
-  if (!analysis.equipos) score -= 3;
-  if (!analysis.jugada_principal?.mercado) score -= 3;
-  if (!analysis.jugada_principal?.cuota || analysis.jugada_principal.cuota <= 1) score -= 3;
-  if (!analysis.jugada_principal?.justificacion) score -= 2;
-  if (!analysis.analisis_vip) score -= 2;
-  
-  // Mercados específicos según deporte
-  if (analysis.deporte === 'soccer') {
-    if (!analysis.mercados_especificos?.ambos_anotan?.valor) score -= 1;
-    if (!analysis.mercados_especificos?.corners_prevision?.valor) score -= 1;
-  }
-  
-  if (analysis.deporte === 'basketball' || analysis.deporte === 'baseball') {
-    if (!analysis.mercados_especificos?.valor_extra_basket_baseball?.mercado) score -= 1;
-  }
-  
-  if (!analysis.favorito_ganar) score -= 1;
-  if (!analysis.marcador_estimado) score -= 1;
-  
-  return Math.max(0, score);
-}
-
-/**
- * Calcula penalizaciones por datos faltantes
- */
-function calculatePenalty(analysis: Analysis, match: Match): number {
-  let penalty = 0;
-  
-  // Penalización si es simulación
-  if (analysis.analisis_vip?.includes('simulación') || analysis.analisis_vip?.includes('fallback')) {
-    penalty += 15;
-  }
-  
-  // Confianza muy baja
-  if ((analysis.jugada_principal?.confianza || 0) < 50) {
-    penalty += 10;
-  }
-  
-  // Cuota muy alta (riesgo)
-  if (analysis.jugada_principal?.cuota > 4.0) {
-    penalty += 5;
-  }
-  
-  // Datos no disponibles
-  const notAvailablePhrases = ['no disponible', 'sin datos', 'no hay información', 'datos insuficientes'];
-  const analysisText = `${analysis.analisis_vip} ${analysis.jugada_principal?.justificacion}`.toLowerCase();
-  
-  notAvailablePhrases.forEach(phrase => {
-    if (analysisText.includes(phrase)) {
-      penalty += 3;
-    }
-  });
-  
-  return Math.min(20, penalty);
-}
-
-// ============================================
-// FUNCIÓN PRINCIPAL DE SCORING
-// ============================================
-
-/**
- * Calcula el crown_score total para un análisis
+ * Calcula el crown_score total para un análisis completo
  */
 export function calculateCrownScore(analysis: Analysis, match: Match): ScoringFactors {
+  // Edge score basado en el análisis
+  const cuota = analysis.jugada_principal.cuota;
+  const confianza = analysis.jugada_principal.confianza;
+  const probImplicita = (1 / cuota) * 100;
+  const edge = confianza * 10 - probImplicita; // Confianza está en 1-10
+  
+  let edgeScore = 0;
+  if (edge >= 20) edgeScore = 30;
+  else if (edge >= 15) edgeScore = 25;
+  else if (edge >= 10) edgeScore = 20;
+  else if (edge >= 5) edgeScore = 15;
+  else if (edge >= 0) edgeScore = Math.max(0, edge);
+  else edgeScore = Math.max(0, 10 + edge);
+
+  // Liquidity score
+  let liquidityScore = 70;
+  if (cuota >= 1.30 && cuota <= 3.50) liquidityScore = 100;
+  else if (cuota >= 1.20 && cuota <= 5.00) liquidityScore = 85;
+  else if (cuota < 1.20 || cuota > 8.00) liquidityScore = 30;
+
+  // League score
+  let leagueScore = 50;
+  const leagueName = match.league.name.toLowerCase();
+  for (const topLeague of TOP_LEAGUES) {
+    if (leagueName.includes(topLeague)) {
+      leagueScore = 100;
+      break;
+    }
+  }
+
+  // Timing score
+  const matchTime = new Date(match.startTime);
+  const now = new Date();
+  const hoursUntilMatch = (matchTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+  
+  let timingScore = 30;
+  if (match.isLive) timingScore = 100;
+  else if (hoursUntilMatch <= 4) timingScore = 100;
+  else if (hoursUntilMatch <= 8) timingScore = 80;
+  else if (hoursUntilMatch <= 12) timingScore = 60;
+
+  // Confidence score (1-10 escala)
+  const confidenceScore = Math.min(confianza * 3, 30); // Máximo 30 puntos
+
   return {
-    edge_score: calculateEdgeScore(analysis, match),
-    report_score: calculateReportScore(analysis),
-    confidence_score: calculateConfidenceScore(analysis),
-    consistency_score: calculateConsistencyScore(analysis),
-    penalty: calculatePenalty(analysis, match),
+    edge_score: edgeScore,
+    liquidity_score: liquidityScore,
+    league_score: leagueScore,
+    timing_score: timingScore,
+    confidence_score: confidenceScore,
   };
 }
 
@@ -206,20 +236,22 @@ export function calculateCrownScore(analysis: Analysis, match: Match): ScoringFa
  * Calcula el score total (0-100)
  */
 export function getTotalCrownScore(factors: ScoringFactors): number {
-  const total = factors.edge_score + 
-                factors.report_score + 
-                factors.confidence_score + 
-                factors.consistency_score - 
-                factors.penalty;
+  const total = factors.edge_score * 0.35 +
+                factors.liquidity_score * 0.20 +
+                factors.league_score * 0.15 +
+                factors.timing_score * 0.15 +
+                factors.confidence_score * 0.15;
   
-  return Math.min(100, Math.max(0, total));
+  return Math.min(100, Math.max(0, Math.round(total)));
 }
 
 /**
  * Determina el badge del pick
  */
-function determineBadge(factors: ScoringFactors): 'solido' | 'valor' | 'estable' {
-  if (factors.confidence_score >= 18 && factors.consistency_score >= 12) {
+function determineBadge(factors: ScoringFactors, analysis: Analysis): 'solido' | 'valor' | 'estable' {
+  const confianza = analysis.jugada_principal?.confianza || 0;
+  
+  if (confianza >= 7 && factors.confidence_score >= 18) {
     return 'solido';
   }
   
@@ -235,27 +267,27 @@ function determineBadge(factors: ScoringFactors): 'solido' | 'valor' | 'estable'
  */
 function generateResumen(analysis: Analysis, badge: 'solido' | 'valor' | 'estable'): string {
   const badgeTexts = {
-    solido: 'Análisis robusto con alta confianza.',
-    valor: 'Excelente oportunidad de valor detectada.',
-    estable: 'Pick balanceado riesgo-beneficio.',
+    solido: 'Pick con alta confianza.',
+    valor: 'Excelente oportunidad de valor.',
+    estable: 'Balance riesgo-beneficio.',
   };
   
-  const justificacionCorta = analysis.jugada_principal?.justificacion?.slice(0, 60) || '';
+  const vipText = analysis.analisis_vip?.slice(0, 100) || '';
   
-  return `${badgeTexts[badge]} ${justificacionCorta}${justificacionCorta.length >= 60 ? '...' : ''}`;
+  return `${badgeTexts[badge]} ${vipText}${vipText.length >= 100 ? '...' : ''}`;
 }
 
 // ============================================
-// TRIPLE CROWN SELECTION
+// TRIPLE CROWN SELECTION CON ANÁLISIS
 // ============================================
 
 /**
- * Selecciona los mejores picks del día
+ * Selecciona los mejores picks del día con análisis completo
  */
 export async function selectTripleCrownPicks(
   matches: Match[],
   analyses: Map<string, Analysis>,
-  minScore: number = 50
+  minScore: number = 40
 ): Promise<TripleCrownResult> {
   const candidates: Array<{
     match: Match;
@@ -288,7 +320,7 @@ export async function selectTripleCrownPicks(
   // Crear CrownPicks
   const picks: CrownPick[] = topPicks.map((candidate, index) => {
     const rank = (index + 1) as 1 | 2 | 3;
-    const badge = determineBadge(candidate.factors);
+    const badge = determineBadge(candidate.factors, candidate.analysis);
     
     return {
       rank,
@@ -299,10 +331,10 @@ export async function selectTripleCrownPicks(
       resumen: generateResumen(candidate.analysis, badge),
       score_breakdown: {
         edge_score: candidate.factors.edge_score,
-        report_score: candidate.factors.report_score,
+        liquidity_score: candidate.factors.liquidity_score,
+        league_score: candidate.factors.league_score,
+        timing_score: candidate.factors.timing_score,
         confidence_score: candidate.factors.confidence_score,
-        consistency_score: candidate.factors.consistency_score,
-        penalty: candidate.factors.penalty,
       },
     };
   });

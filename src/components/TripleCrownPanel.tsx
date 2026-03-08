@@ -8,14 +8,32 @@ interface TripleCrownPanelProps {
   isLoading: boolean;
   onRefresh: () => void;
   generatedAt?: string;
+  analyzingProgress?: { current: number; total: number; matchName: string } | null;
 }
 
-export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: TripleCrownPanelProps) {
+// Helper para formatear timestamp
+function formatTimestamp(isoString: string): string {
+  const date = new Date(isoString);
+  return date.toLocaleString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+export function TripleCrownPanel({ 
+  picks, 
+  isLoading, 
+  onRefresh, 
+  generatedAt,
+  analyzingProgress 
+}: TripleCrownPanelProps) {
   const rankIcons = ['🥇', '🥈', '🥉'];
   const rankColors = [
-    'from-yellow-400/15 to-amber-500/5 border-yellow-400/25',
-    'from-slate-300/15 to-slate-400/5 border-slate-400/25',
-    'from-amber-600/15 to-amber-700/5 border-amber-600/25',
+    'from-yellow-50 to-amber-50/50 border-yellow-200',
+    'from-slate-50 to-slate-100/50 border-slate-200',
+    'from-amber-50 to-orange-50/50 border-amber-200',
   ];
   const badgeColors = {
     solido: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -23,29 +41,57 @@ export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: T
     estable: 'bg-purple-50 text-purple-700 border-purple-200',
   };
 
+  // Estado de carga con progreso
   if (isLoading) {
     return (
       <div className="bg-gradient-to-r from-foreground/5 via-foreground/3 to-foreground/5 rounded-2xl p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4 sm:mb-5">
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="skeleton h-8 w-8 rounded-lg" />
+            <div className="w-8 h-8 rounded-lg bg-[#FF5A5F]/10 flex items-center justify-center">
+              <span className="text-lg">👑</span>
+            </div>
             <div>
-              <div className="skeleton h-5 sm:h-6 w-32 sm:w-40" />
-              <div className="skeleton h-3 sm:h-4 w-28 sm:w-32 mt-1" />
+              <h2 className="text-lg sm:text-xl font-semibold text-foreground">Triple Corona VIP</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                {analyzingProgress 
+                  ? `Analizando partido ${analyzingProgress.current} de ${analyzingProgress.total}...`
+                  : 'Buscando los mejores picks...'
+                }
+              </p>
             </div>
           </div>
-          <div className="skeleton h-9 w-20 sm:w-24 rounded-lg" />
         </div>
+
+        {/* Progress Bar */}
+        {analyzingProgress && (
+          <div className="mb-4 sm:mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-muted-foreground truncate pr-2">
+                {analyzingProgress.matchName}
+              </span>
+              <span className="text-sm font-medium text-foreground tabular-nums flex-shrink-0">
+                {Math.round((analyzingProgress.current / analyzingProgress.total) * 100)}%
+              </span>
+            </div>
+            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-[#FF5A5F] rounded-full transition-all duration-300"
+                style={{ width: `${(analyzingProgress.current / analyzingProgress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="skeleton h-44 sm:h-48 rounded-xl" />
+            <div key={i} className="skeleton h-64 sm:h-72 rounded-xl" />
           ))}
         </div>
       </div>
     );
   }
 
+  // Sin picks
   if (picks.length === 0) {
     return (
       <div className="bg-gradient-to-r from-foreground/5 via-foreground/3 to-foreground/5 rounded-2xl p-4 sm:p-6">
@@ -67,15 +113,15 @@ export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: T
             </svg>
           </div>
           <p className="text-sm text-muted-foreground mb-4 px-2">
-            No hay picks que cumplan con los criterios mínimos de confianza
+            No hay partidos que cumplan con los criterios mínimos de calidad
           </p>
           <button
             onClick={onRefresh}
-            className="h-11 min-h-[44px] px-5 bg-foreground text-white rounded-xl text-sm font-medium
-                       transition-all duration-200 hover:bg-foreground/90 active:scale-95
-                       focus:outline-none focus:ring-2 focus:ring-foreground/20"
+            className="h-11 min-h-[44px] px-5 bg-[#FF5A5F] text-white rounded-xl text-sm font-medium
+                       transition-all duration-200 hover:bg-[#E14B50] active:scale-95
+                       focus:outline-none focus:ring-2 focus:ring-[#FF5A5F]/20"
           >
-            Analizar partidos
+            Auto-analizar Top 3
           </button>
         </div>
       </div>
@@ -100,11 +146,11 @@ export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: T
         
         <button
           onClick={onRefresh}
-          className="h-9 px-3 sm:px-4 bg-white border border-border rounded-xl text-sm font-medium
-                     text-muted-foreground hover:bg-secondary transition-colors active:scale-95
-                     focus:outline-none focus:ring-2 focus:ring-[#FF5A5F]/15"
+          className="h-9 px-3 sm:px-4 bg-[#FF5A5F] text-white rounded-xl text-sm font-medium
+                     transition-all duration-200 hover:bg-[#E14B50] active:scale-95
+                     focus:outline-none focus:ring-2 focus:ring-[#FF5A5F]/20"
         >
-          <span className="hidden sm:inline">Actualizar</span>
+          <span className="hidden sm:inline">Actualizar Top 3</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:hidden">
             <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
             <path d="M3 3v5h5" />
@@ -117,7 +163,7 @@ export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: T
       {/* Generated time - Mobile */}
       {generatedAt && (
         <div className="sm:hidden text-xs text-muted-foreground/60 mb-3 -mt-1">
-          Actualizado: {new Date(generatedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+          Actualizado: {formatTimestamp(generatedAt)}
         </div>
       )}
       
@@ -126,82 +172,127 @@ export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: T
         {picks.map((pick, index) => (
           <div
             key={pick.match.id}
-            className={`relative bg-gradient-to-br ${rankColors[index]} border rounded-xl p-3.5 sm:p-4
-                        transition-all duration-200 hover:shadow-md active:scale-[0.98]`}
+            className={`relative bg-gradient-to-br ${rankColors[index]} border rounded-xl p-4 sm:p-5
+                        transition-all duration-200 hover:shadow-md`}
           >
-            {/* Rank Badge - Position absolute */}
-            <div className="absolute -top-1.5 -left-1.5 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white shadow-sm
-                            flex items-center justify-center text-base sm:text-lg">
+            {/* Rank Badge */}
+            <div className="absolute -top-2 -left-2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white shadow-md
+                            flex items-center justify-center text-lg sm:text-xl">
               {rankIcons[index]}
             </div>
             
             {/* Badge - Top right */}
             <div className="flex justify-end mb-2">
-              <span className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full border ${badgeColors[pick.badge]}`}>
+              <span className={`text-[10px] sm:text-xs px-2.5 py-1 rounded-full border ${badgeColors[pick.badge]}`}>
                 {badgeLabels[pick.badge].label}
               </span>
             </div>
             
-            {/* Sport & Teams */}
-            <div className="mb-2.5 sm:mb-3">
-              <div className="flex items-center gap-1.5 mb-1">
+            {/* Sport & League */}
+            <div className="mb-2">
+              <div className="flex items-center gap-1.5">
                 <span className="text-sm">
                   {sportConfig[pick.analysis.deporte]?.icon || '⚽'}
                 </span>
-                <span className="text-[11px] sm:text-xs text-muted-foreground truncate">
+                <span className="text-xs text-muted-foreground truncate">
                   {pick.match.league.name}
                 </span>
               </div>
-              <p className="text-sm font-medium text-foreground leading-tight line-clamp-2">
-                {pick.analysis.equipos}
-              </p>
             </div>
             
-            {/* Main Pick */}
-            <div className="bg-white/50 sm:bg-white/60 rounded-lg p-2.5 sm:p-3 mb-2.5 sm:mb-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] sm:text-xs text-muted-foreground">Jugada</span>
-                <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
+            {/* Teams */}
+            <p className="text-sm font-semibold text-foreground leading-tight mb-3">
+              {pick.analysis.equipos}
+            </p>
+            
+            {/* Main Play */}
+            <div className="bg-white/70 rounded-lg p-3 mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] sm:text-xs text-muted-foreground">Jugada Principal</span>
+                <span className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">
                   {pick.analysis.jugada_principal.cuota.toFixed(2)}
                 </span>
               </div>
-              <p className="text-xs sm:text-sm font-medium text-foreground line-clamp-1">
+              <p className="text-sm font-medium text-foreground">
                 {pick.analysis.jugada_principal.mercado}
               </p>
             </div>
             
-            {/* Confidence & Score */}
-            <div className="flex items-center justify-between mb-2.5 sm:mb-3">
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-10 sm:w-12 bg-secondary rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-[#16A34A] rounded-full"
-                    style={{ width: `${pick.analysis.jugada_principal.confianza}%` }}
-                  />
-                </div>
-                <span className="text-[11px] sm:text-xs text-muted-foreground tabular-nums">
-                  {pick.analysis.jugada_principal.confianza}%
+            {/* Confidence Bar - Scale 1-10 */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-muted-foreground">Confianza</span>
+                <span className="text-sm font-semibold text-foreground">
+                  {pick.analysis.jugada_principal.confianza}/10
                 </span>
               </div>
-              
-              <div className="flex items-center gap-1 text-[11px] sm:text-xs">
-                <span className="text-muted-foreground">Score</span>
-                <span className="font-semibold text-foreground tabular-nums">{pick.crown_score}</span>
+              <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-[#16A34A] rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(pick.analysis.jugada_principal.confianza * 10, 100)}%` }}
+                />
               </div>
             </div>
             
-            {/* Summary */}
-            <p className="text-[11px] sm:text-xs text-muted-foreground leading-relaxed line-clamp-2">
-              {pick.resumen}
-            </p>
+            {/* Edge Detectado */}
+            {pick.analysis.edge_detectado?.mercado && (
+              <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-2.5 mb-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-blue-600 font-medium">Edge</span>
+                  <span className="text-green-600 font-semibold">
+                    +{pick.analysis.edge_detectado.edge_pct?.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {/* Marcador Estimado */}
+            {pick.analysis.marcador_estimado && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                <span>Marcador Est.:</span>
+                <span className="font-medium text-foreground tabular-nums">
+                  {pick.analysis.marcador_estimado}
+                </span>
+              </div>
+            )}
+            
+            {/* Análisis VIP */}
+            <div className="bg-[#FF5A5F]/5 border border-[#FF5A5F]/10 rounded-lg p-3 mb-3">
+              <p className="text-[10px] text-[#FF5A5F] uppercase tracking-wide mb-1 font-medium">
+                Análisis VIP
+              </p>
+              <p className="text-xs text-foreground leading-relaxed line-clamp-3">
+                {pick.analysis.analisis_vip}
+              </p>
+            </div>
+            
+            {/* Mercados Específicos - Soccer */}
+            {pick.analysis.deporte === 'soccer' && pick.analysis.mercados_especificos && (
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                {pick.analysis.mercados_especificos.ambos_anotan?.valor && (
+                  <div className="flex items-center gap-1">
+                    <span>Ambos:</span>
+                    <span className="font-medium text-foreground">
+                      {pick.analysis.mercados_especificos.ambos_anotan.valor}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Crown Score */}
+            <div className="flex items-center justify-between text-xs pt-2 border-t border-border/50 mt-3">
+              <span className="text-muted-foreground">Score</span>
+              <span className="font-bold text-foreground tabular-nums">{pick.crown_score}</span>
+            </div>
           </div>
         ))}
       </div>
       
       {/* Generated time - Desktop */}
       {generatedAt && (
-        <div className="hidden sm:block text-xs text-muted-foreground/60 mt-3 text-right">
-          Actualizado: {new Date(generatedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+        <div className="hidden sm:block text-xs text-muted-foreground/60 mt-4 text-right">
+          Actualizado: {formatTimestamp(generatedAt)}
         </div>
       )}
     </div>

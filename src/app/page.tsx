@@ -17,7 +17,8 @@ import {
   getHistory, 
   addToHistory,
   clearHistory,
-  timeAgo 
+  timeAgo,
+  getAPICounter
 } from '@/lib/storage';
 
 export default function Home() {
@@ -44,6 +45,9 @@ export default function Home() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+  
+  // API Counter
+  const [apiCallsToday, setApiCallsToday] = useState(0);
 
   // ============================================
   // FETCH MATCHES
@@ -125,6 +129,10 @@ export default function Home() {
     fetchMatches();
     fetchHistory();
     fetchTripleCrown();
+    
+    // Cargar contador de API
+    const counter = getAPICounter();
+    setApiCallsToday(counter.count);
   }, [fetchMatches, fetchHistory, fetchTripleCrown]);
 
   // ============================================
@@ -336,9 +344,13 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-10 sm:mt-12 pt-5 sm:pt-6 border-t border-border/50">
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center gap-4">
             <p className="text-xs sm:text-sm text-muted-foreground/60">
               Dialox VIP • Terminal personal de pronósticos
+            </p>
+            <span className="text-xs text-muted-foreground/40">|</span>
+            <p className="text-xs text-muted-foreground/50">
+              API calls hoy: {apiCallsToday}/20
             </p>
           </div>
         </footer>

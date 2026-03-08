@@ -127,7 +127,29 @@ export const STORAGE_KEYS = {
   MATCHES_CACHE: 'dialox_matches_cache',
   HISTORY: 'dialox_history',
   LAST_UPDATE: 'dialox_last_update',
+  SCHEDULE_CACHE: 'dialox_schedule',      // Capa 1: Cartelera (60 min)
+  ODDS_CACHE: 'dialox_odds',              // Capa 2: Cuotas por partido (30 min)
+  ANALYSIS_CACHE: 'dialox_analysis',      // Capa 3: Análisis (45 min)
+  API_COUNTER: 'dialox_api_counter',      // Contador de llamadas API
 } as const;
 
-// Cache TTL (15 minutes)
-export const CACHE_TTL = 15 * 60 * 1000;
+// Cache TTL (Tiempos de vida)
+export const CACHE_TTL = {
+  MATCHES: 15 * 60 * 1000,          // 15 minutos (legacy)
+  SCHEDULE: 60 * 60 * 1000,          // 60 minutos - Cartelera general
+  ODDS: 30 * 60 * 1000,              // 30 minutos - Cuotas detalladas
+  ANALYSIS: 45 * 60 * 1000,          // 45 minutos - Análisis VIP
+} as const;
+
+// Límites de API
+export const API_LIMITS = {
+  DAILY_MAX: 20,                     // Máximo 20 llamadas/día a Odds API
+  RESET_HOUR: 0,                     // Resetear contador a medianoche
+} as const;
+
+// API Usage Counter
+export interface APICounter {
+  date: string;                      // Fecha ISO (YYYY-MM-DD)
+  count: number;                     // Número de llamadas hoy
+  lastReset: string;                 // Timestamp del último reset
+}
