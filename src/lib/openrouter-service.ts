@@ -12,6 +12,14 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const PERPLEXITY_MODEL = 'perplexity/sonar'; // Para búsqueda de datos
 const DEEPSEEK_MODEL = 'deepseek/deepseek-r1'; // Para análisis final
 
+// Debug: Log if API key is available (only on server)
+if (typeof window === 'undefined') {
+  const keyPreview = process.env.OPENROUTER_API_KEY 
+    ? `${process.env.OPENROUTER_API_KEY.substring(0, 10)}...` 
+    : 'NOT SET';
+  console.log('[OPENROUTER] API Key status:', keyPreview);
+}
+
 // System prompt para DeepSeek R1
 const DEEPSEEK_SYSTEM_PROMPT = `Rol: Actúa como un Analista Quant Deportivo y Tipster VIP de Élite dentro de un pipeline de IA de dos etapas:
 1. Perplexity realiza la búsqueda de noticias importantes, lesiones, suspensiones, contexto del partido y datos relevantes de los equipos.
