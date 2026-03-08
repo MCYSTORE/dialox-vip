@@ -13,12 +13,13 @@ const PERPLEXITY_MODEL = 'perplexity/sonar'; // Para búsqueda de datos
 const DEEPSEEK_MODEL = 'deepseek/deepseek-r1'; // Para análisis final
 
 // Debug: Log if API key is available (only on server)
-if (typeof window === 'undefined') {
-  const keyPreview = process.env.OPENROUTER_API_KEY 
-    ? `${process.env.OPENROUTER_API_KEY.substring(0, 10)}...` 
-    : 'NOT SET';
-  console.log('[OPENROUTER] API Key status:', keyPreview);
-}
+const getApiKeyStatus = () => {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) return 'NOT SET - Check .env file';
+  return `${key.substring(0, 15)}...${key.substring(key.length - 4)}`;
+};
+
+console.log('[OPENROUTER] API Key status:', getApiKeyStatus());
 
 // System prompt para DeepSeek R1
 const DEEPSEEK_SYSTEM_PROMPT = `Rol: Actúa como un Analista Quant Deportivo y Tipster VIP de Élite dentro de un pipeline de IA de dos etapas:
