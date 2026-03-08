@@ -1,0 +1,519 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================
+   DIALOX VIP - Premium Design System
+   Apple + Airbnb Inspired Interface
+   ============================================ */
+
+:root {
+  /* Radius - Soft, approachable corners */
+  --radius: 0.75rem;
+  
+  /* Core Colors - Warm, sophisticated palette */
+  --background: #F7F7F5;
+  --foreground: #111111;
+  
+  /* Surface Colors */
+  --card: #FFFFFF;
+  --card-foreground: #111111;
+  --popover: #FFFFFF;
+  --popover-foreground: #111111;
+  
+  /* Primary - Deep charcoal for elegance */
+  --primary: #111111;
+  --primary-foreground: #FFFFFF;
+  
+  /* Secondary - Soft warm gray */
+  --secondary: #F5F5F4;
+  --secondary-foreground: #111111;
+  
+  /* Muted - Subtle backgrounds */
+  --muted: #F5F5F4;
+  --muted-foreground: #6B7280;
+  
+  /* Accent - Warm Airbnb red */
+  --accent: #FF5A5F;
+  --accent-foreground: #FFFFFF;
+  --accent-hover: #E14B50;
+  
+  /* Semantic Colors */
+  --destructive: #DC2626;
+  --success: #16A34A;
+  --warning: #F59E0B;
+  
+  /* Border & Input */
+  --border: #EAEAEA;
+  --input: #EAEAEA;
+  --ring: rgba(255, 90, 95, 0.25);
+  
+  /* Chart Colors - Muted, editorial */
+  --chart-1: #FF5A5F;
+  --chart-2: #16A34A;
+  --chart-3: #6B7280;
+  --chart-4: #111111;
+  --chart-5: #9CA3AF;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--ring);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  /* Premium Typography Scale */
+  h1 {
+    @apply text-3xl font-semibold tracking-tight;
+    letter-spacing: -0.03em;
+  }
+  
+  h2 {
+    @apply text-2xl font-semibold tracking-tight;
+    letter-spacing: -0.02em;
+  }
+  
+  h3 {
+    @apply text-xl font-medium;
+    letter-spacing: -0.015em;
+  }
+  
+  h4 {
+    @apply text-lg font-medium;
+  }
+  
+  p {
+    @apply text-base leading-relaxed;
+  }
+}
+
+/* ============================================
+   PREMIUM COMPONENT STYLES
+   ============================================ */
+
+/* Elegant scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+/* Premium Focus States */
+.focus-ring {
+  @apply outline-none ring-2 ring-accent/25 ring-offset-2 ring-offset-background;
+}
+
+/* Premium Transitions */
+.transition-premium {
+  @apply transition-all duration-200 ease-out;
+}
+
+/* Card Hover Effect */
+.card-hover {
+  @apply transition-all duration-200 ease-out;
+}
+
+.card-hover:hover {
+  @apply shadow-sm;
+  transform: translateY(-1px);
+}
+
+/* Premium Button Base */
+.btn-premium {
+  @apply inline-flex items-center justify-center font-medium;
+  @apply transition-all duration-200 ease-out;
+  @apply focus:outline-none focus:ring-2 focus:ring-accent/25 focus:ring-offset-2;
+}
+
+/* Premium Input */
+.input-premium {
+  @apply bg-white border border-border rounded-xl;
+  @apply px-4 py-3 text-foreground placeholder:text-muted-foreground/50;
+  @apply transition-all duration-200 ease-out;
+  @apply focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent/30;
+}
+
+/* Skeleton Loading Animation */
+.skeleton {
+  @apply bg-muted animate-pulse rounded-lg;
+}
+
+/* Glass Effect - Subtle */
+.glass-subtle {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Fade In Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Stagger Animation */
+@keyframes staggerIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-stagger-in {
+  animation: staggerIn 0.4s ease-out forwards;
+}
+
+/* Slide In Animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.35s ease-out forwards;
+}
+
+/* Pulse Subtle */
+@keyframes pulseSubtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 2s ease-in-out infinite;
+}
+
+/* Premium Spacing Utilities */
+.space-premium > * + * {
+  margin-top: 1.5rem;
+}
+
+/* Editorial Title Style */
+.title-editorial {
+  @apply text-2xl font-semibold tracking-tight text-foreground;
+  letter-spacing: -0.02em;
+}
+
+/* Subtle Text */
+.text-subtle {
+  @apply text-muted-foreground text-sm;
+}
+
+/* Premium Badge */
+.badge-premium {
+  @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
+  @apply bg-secondary text-secondary-foreground;
+}
+
+/* Status Indicators */
+.status-dot {
+  @apply w-2 h-2 rounded-full;
+}
+
+.status-connected {
+  background-color: #16A34A;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+.status-disconnected {
+  background-color: #DC2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.status-loading {
+  background-color: #F59E0B;
+  animation: pulseSubtle 1.5s ease-in-out infinite;
+}
+
+/* Premium Divider */
+.divider-premium {
+  @apply border-t border-border/70;
+}
+
+/* Quote Display */
+.quote-box {
+  @apply font-mono text-sm tabular-nums;
+}
+
+/* Loading Spinner */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Confidence Bar Gradient */
+.confidence-gradient {
+  background: linear-gradient(90deg, #16A34A 0%, #22C55E 50%, #4ADE80 100%);
+}
+
+/* Sport Icons Color */
+.sport-soccer { color: #16A34A; }
+.sport-basketball { color: #F59E0B; }
+.sport-baseball { color: #6B7280; }
+
+/* Responsive Container */
+.container-premium {
+  @apply max-w-7xl mx-auto px-6;
+}
+
+/* Card Shadow Premium */
+.shadow-premium {
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.02),
+    0 2px 4px rgba(0, 0, 0, 0.02),
+    0 4px 8px rgba(0, 0, 0, 0.02);
+}
+
+.shadow-premium-hover {
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 4px 8px rgba(0, 0, 0, 0.03),
+    0 8px 16px rgba(0, 0, 0, 0.03);
+}
+
+/* ============================================
+   MOBILE-FIRST UTILITIES
+   ============================================ */
+
+/* Safe Area Insets for notched devices */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Touch-friendly tap target (minimum 44x44) */
+.tap-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Prevent zoom on input focus (iOS) */
+@media screen and (max-width: 640px) {
+  input[type="text"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Mobile-optimized text sizing */
+@media screen and (max-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+  
+  h1 {
+    font-size: 1.625rem;
+  }
+  
+  h2 {
+    font-size: 1.375rem;
+  }
+  
+  h3 {
+    font-size: 1.125rem;
+  }
+}
+
+/* Improved mobile spacing */
+@media screen and (max-width: 640px) {
+  .mobile-padding {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .mobile-gap {
+    gap: 0.75rem;
+  }
+}
+
+/* Mobile card optimization */
+@media screen and (max-width: 640px) {
+  .card-mobile {
+    border-radius: 1rem;
+    padding: 1rem;
+  }
+}
+
+/* Smooth scroll for mobile */
+@media screen and (max-width: 640px) {
+  .smooth-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Hide scrollbar on mobile for cleaner look */
+@media screen and (max-width: 640px) {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Mobile drawer animation */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+.animate-slide-down {
+  animation: slideDown 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* Backdrop blur overlay */
+.backdrop-overlay {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Touch feedback */
+@media (hover: none) {
+  .touch-feedback:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* Prevent text selection on interactive elements */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Mobile-optimized button */
+.btn-mobile {
+  @apply h-11 min-h-[44px] px-4 rounded-xl font-medium text-sm;
+  @apply transition-all duration-200 ease-out;
+  @apply flex items-center justify-center gap-2;
+  @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+
+/* Pull-to-refresh indicator area */
+.ptr-indicator {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
