@@ -3,7 +3,7 @@
 // Sistema de caché en capas optimizado
 // ============================================
 
-import { Match, HistoryEntry, CacheEntry, STORAGE_KEYS, CACHE_TTL, API_LIMITS, APICounter } from './types';
+import { Match, HistoryEntry, CacheEntry, STORAGE_KEYS, CACHE_TTL, API_LIMITS, APICounter, TripleCrownCacheData, TripleCrownCacheEntry } from './types';
 
 // ============================================
 // SAFE LOCAL STORAGE
@@ -358,6 +358,84 @@ export function setCachedAnalysis(matchId: string, analysis: AnalysisCacheEntry[
   
   safeSetItem(STORAGE_KEYS.ANALYSIS_CACHE, JSON.stringify(entry));
   console.log(`[CACHE] Análisis guardado para ${matchId}`);
+}
+
+// ============================================
+// CAPA 4: CACHÉ DE TRIPLE CORONA VIP (45 min)
+// ============================================
+
+/**
+ * Obtiene el caché de Triple Corona VIP
+ * Retorna null si no existe o está expirado
+ */
+export function getCachedTripleCrown(): TripleCrownCacheData | null {
+  const cached = safeGetItem(STORAGE_KEYS.TRIPLE_CROWN_CACHE);
+  if (!cached) return null;
+  
+  try {
+    const entry: TripleCrownCacheEntry = JSON.parse(cached);
+    const now = Date.now();
+    
+    // Verificar si el caché es válido (45 min)
+    if (now < entry.timestamp + entry.ttl) {
+      const ageMinutes = Math.round((now - entry.timestamp) / 60000);
+      console.log(`[CACHE] Triple Corona cacheada (hace ${ageMinutes} min)`);
+      return entry.data;
+    }
+    
+    console.log('[CACHE] Triple Corona expirada');
+    safeRemoveItem(STORAGE_KEYS.TRIPLE_CROWN_CACHE);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Guarda Triple Corona en caché
+ */
+export function setCachedTripleCrown(data: TripleCrownCacheData): void {
+  const entry: TripleCrownCacheEntry = {
+    data,
+    timestamp: Date.now(),
+    ttl: CACHE_TTL.TRIPLE_CROWN,
+  };
+  
+  safeSetItem(STORAGE_KEYS.TRIPLE_CROWN_CACHE, JSON.stringify(entry));
+  console.log('[CACHE] Triple Corona guardada en caché');
+}
+
+/**
+ * Obtiene información sobre el estado del caché de Triple Corona
+ */
+export function getTripleCrownCacheStatus(): {
+  hasCache: boolean;
+  ageMinutes: number;
+  isValid: boolean;
+} {
+  const cached = safeGetItem(STORAGE_KEYS.TRIPLE_CROWN_CACHE);
+  
+  if (!cached) {
+    return { hasCache: false, ageMinutes: 0, isValid: false };
+  }
+  
+  try {
+    const entry: TripleCrownCacheEntry = JSON.parse(cached);
+    const now = Date.now();
+    const ageMinutes = Math.round((now - entry.timestamp) / 60000);
+    const isValid = now < entry.timestamp + entry.ttl;
+    
+    return { hasCache: true, ageMinutes, isValid };
+  } catch {
+    return { hasCache: false, ageMinutes: 0, isValid: false };
+  }
+}
+
+/**
+ * Limpia el caché de Triple Corona
+ */
+export function clearTripleCrownCache(): void {
+  safeRemoveItem(STORAGE_KEYS.TRIPLE_CROWN_CACHE);
 }
 
 // ============================================

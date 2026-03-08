@@ -130,6 +130,7 @@ export const STORAGE_KEYS = {
   SCHEDULE_CACHE: 'dialox_schedule',      // Capa 1: Cartelera (60 min)
   ODDS_CACHE: 'dialox_odds',              // Capa 2: Cuotas por partido (30 min)
   ANALYSIS_CACHE: 'dialox_analysis',      // Capa 3: Análisis (45 min)
+  TRIPLE_CROWN_CACHE: 'dialox_triple_crown', // Triple Corona VIP (45 min)
   API_COUNTER: 'dialox_api_counter',      // Contador de llamadas API
 } as const;
 
@@ -139,6 +140,7 @@ export const CACHE_TTL = {
   SCHEDULE: 60 * 60 * 1000,          // 60 minutos - Cartelera general
   ODDS: 30 * 60 * 1000,              // 30 minutos - Cuotas detalladas
   ANALYSIS: 45 * 60 * 1000,          // 45 minutos - Análisis VIP
+  TRIPLE_CROWN: 45 * 60 * 1000,      // 45 minutos - Triple Corona VIP
 } as const;
 
 // Límites de API
@@ -153,3 +155,43 @@ export interface APICounter {
   count: number;                     // Número de llamadas hoy
   lastReset: string;                 // Timestamp del último reset
 }
+
+// Triple Crown Cache Entry
+export interface TripleCrownCacheData {
+  picks: Array<{
+    rank: 1 | 2 | 3;
+    match: Match;
+    analysis: Analysis;
+    crown_score: number;
+    badge: 'solido' | 'valor' | 'estable';
+    resumen: string;
+    score_breakdown: {
+      edge_score: number;
+      liquidity_score: number;
+      league_score: number;
+      timing_score: number;
+      confidence_score: number;
+    };
+  }>;
+  generated_at: string;
+  date: string;
+}
+
+export interface TripleCrownCacheEntry {
+  data: TripleCrownCacheData;
+  timestamp: number;
+  ttl: number;
+}
+
+// Triple Crown Loading State
+export interface TripleCrownProgress {
+  phase: 'idle' | 'selecting' | 'analyzing' | 'complete' | 'error';
+  message: string;
+  current: number;           // Partido actual siendo analizado
+  total: number;             // Total de partidos a analizar
+  matchName?: string;        // Nombre del partido actual
+  completedPicks: number;    // Picks completados
+}
+
+// Cache Status
+export type CacheStatus = 'fresh' | 'cached' | 'stale' | 'none';

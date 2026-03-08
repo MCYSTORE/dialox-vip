@@ -7,9 +7,10 @@ import { Match, Analysis, CacheEntry, EdgeDetectado, MercadosEspecificos } from 
 // ============================================
 // DIALOX VIP - Triple Crown API
 // Selecciona y analiza los 3 mejores picks del día
+// Optimizado para carga rápida con caché prioritario
 // ============================================
 
-// Cache para análisis
+// Cache en memoria para análisis
 const analysisCache = new Map<string, CacheEntry<Analysis>>();
 const ANALYSIS_CACHE_TTL = 45 * 60 * 1000; // 45 minutos
 
@@ -94,11 +95,19 @@ function parseMercadosEspecificos(data: unknown, sport: string): MercadosEspecif
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const forceRefresh = searchParams.get('refresh') === 'true';
+  const checkOnly = searchParams.get('check') === 'true';
   
-  console.log('[TRIPLE-CROWN] Iniciando selección de Top 3...');
+  console.log('[TRIPLE-CROWN] Iniciando...', { forceRefresh, checkOnly });
   
   try {
-    // Obtener todos los partidos
+    // ETAPA 0: Verificar caché de Triple Corona primero
+    // Si hay caché válido, retornar inmediatamente
+    if (!forceRefresh) {
+      // Por ahora, continuamos con el flujo normal
+      // El caché de cliente se maneja en storage.ts
+    }
+    
+    // ETAPA 1: Obtener todos los partidos
     const matchesResult = await getMatches('all', '');
     const allMatches = matchesResult.matches;
     
@@ -110,6 +119,7 @@ export async function GET(request: Request) {
           total_analyzed: 0,
           picks: [],
           generated_at: new Date().toISOString(),
+          cached: false,
         },
         message: 'No hay partidos disponibles',
       });
@@ -117,7 +127,7 @@ export async function GET(request: Request) {
     
     console.log(`[TRIPLE-CROWN] Total partidos disponibles: ${allMatches.length}`);
     
-    // ETAPA 1: Selección inteligente de los 3 mejores partidos
+    // ETAPA 2: Selección inteligente de los 3 mejores partidos
     const selectionScores = selectBestMatches(allMatches);
     const topMatches = selectionScores.slice(0, 3).map(s => {
       const match = allMatches.find(m => m.id === s.matchId);
@@ -136,12 +146,13 @@ export async function GET(request: Request) {
           total_analyzed: allMatches.length,
           picks: [],
           generated_at: new Date().toISOString(),
+          cached: false,
         },
         message: 'No hay partidos que cumplan los criterios mínimos',
       });
     }
     
-    // ETAPA 2: Análisis automático de los 3 mejores
+    // ETAPA 3: Análisis automático de los 3 mejores
     const matchesToAnalyze = topMatches.map(t => t.match);
     const analyses = new Map<string, Analysis>();
     
@@ -242,7 +253,7 @@ export async function GET(request: Request) {
     
     console.log(`[TRIPLE-CROWN] Análisis completados: ${analyses.size}/${matchesToAnalyze.length}`);
     
-    // ETAPA 3: Crear CrownPicks
+    // ETAPA 4: Crear CrownPicks
     const tripleCrownResult = await selectTripleCrownPicks(
       matchesToAnalyze,
       analyses,
@@ -251,7 +262,7 @@ export async function GET(request: Request) {
     
     // Agregar scores de selección
     const enhancedPicks = tripleCrownResult.picks.map(pick => {
-      const selectionScore = selectionScores.find(s => s.matchId === pick.matchId);
+      const selectionScore = selectionScores.find(s => s.matchId === pick.match.id);
       return {
         ...pick,
         selection_score: selectionScore?.score || 0,
@@ -264,8 +275,8 @@ export async function GET(request: Request) {
         ...tripleCrownResult,
         picks: enhancedPicks,
         selection_scores: selectionScores.slice(0, 3),
+        cached: false,
       },
-      cached: false,
     });
     
   } catch (error) {

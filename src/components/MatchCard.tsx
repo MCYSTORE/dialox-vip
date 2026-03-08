@@ -9,9 +9,10 @@ interface MatchCardProps {
   onAnalyze: (match: Match) => void;
   isAnalyzing: boolean;
   isSelected: boolean;
+  isInTop3?: boolean;
 }
 
-export function MatchCard({ match, onAnalyze, isAnalyzing, isSelected }: MatchCardProps) {
+export function MatchCard({ match, onAnalyze, isAnalyzing, isSelected, isInTop3 = false }: MatchCardProps) {
   const sport = sportConfig[match.league.sport];
 
   return (
@@ -35,7 +36,12 @@ export function MatchCard({ match, onAnalyze, isAnalyzing, isSelected }: MatchCa
           </div>
         </div>
         
-        {match.isLive ? (
+        {/* Top 3 Badge or Status */}
+        {isInTop3 ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FF5A5F]/10 flex-shrink-0">
+            <span className="text-xs font-medium text-[#FF5A5F]">👑 Top 3</span>
+          </div>
+        ) : match.isLive ? (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FF5A5F]/10 flex-shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A5F] animate-pulse" />
             <span className="text-xs font-medium text-[#FF5A5F]">EN VIVO</span>

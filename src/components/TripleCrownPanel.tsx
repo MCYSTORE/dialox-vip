@@ -2,13 +2,15 @@
 
 import { CrownPick, badgeLabels } from '@/lib/triple-crown';
 import { sportConfig } from '@/lib/data';
+import { TripleCrownProgress, CacheStatus } from '@/lib/types';
 
 interface TripleCrownPanelProps {
   picks: CrownPick[];
   isLoading: boolean;
   onRefresh: () => void;
   generatedAt?: string;
-  analyzingProgress?: { current: number; total: number; matchName: string } | null;
+  progress?: TripleCrownProgress;
+  cacheStatus?: CacheStatus;
 }
 
 // Helper para formatear timestamp
@@ -22,12 +24,61 @@ function formatTimestamp(isoString: string): string {
   });
 }
 
+// Skeleton premium para un pick
+function PickSkeleton() {
+  return (
+    <div className="bg-white/50 border border-border/30 rounded-xl p-4 sm:p-5 animate-pulse">
+      {/* Badge placeholder */}
+      <div className="flex justify-end mb-3">
+        <div className="h-6 w-20 bg-secondary rounded-full" />
+      </div>
+      
+      {/* Sport & League */}
+      <div className="mb-3">
+        <div className="h-4 w-24 bg-secondary rounded" />
+      </div>
+      
+      {/* Teams */}
+      <div className="h-5 w-full bg-secondary rounded mb-4" />
+      
+      {/* Main Play */}
+      <div className="bg-secondary/50 rounded-lg p-3 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="h-3 w-20 bg-secondary rounded" />
+          <div className="h-7 w-14 bg-secondary rounded" />
+        </div>
+        <div className="h-4 w-32 bg-secondary rounded" />
+      </div>
+      
+      {/* Confidence Bar */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="h-3 w-16 bg-secondary rounded" />
+          <div className="h-4 w-8 bg-secondary rounded" />
+        </div>
+        <div className="h-2 bg-secondary rounded-full" />
+      </div>
+      
+      {/* Analysis placeholder */}
+      <div className="bg-secondary/30 rounded-lg p-3">
+        <div className="h-3 w-16 bg-secondary rounded mb-2" />
+        <div className="space-y-1.5">
+          <div className="h-3 w-full bg-secondary rounded" />
+          <div className="h-3 w-4/5 bg-secondary rounded" />
+          <div className="h-3 w-3/5 bg-secondary rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TripleCrownPanel({ 
   picks, 
   isLoading, 
   onRefresh, 
   generatedAt,
-  analyzingProgress 
+  progress,
+  cacheStatus = 'none'
 }: TripleCrownPanelProps) {
   const rankIcons = ['🥇', '🥈', '🥉'];
   const rankColors = [
@@ -41,7 +92,25 @@ export function TripleCrownPanel({
     estable: 'bg-purple-50 text-purple-700 border-purple-200',
   };
 
-  // Estado de carga con progreso
+  // Obtener mensaje de progreso
+  const getProgressMessage = () => {
+    if (!progress) return 'Buscando los mejores picks...';
+    
+    switch (progress.phase) {
+      case 'selecting':
+        return 'Seleccionando mejores partidos...';
+      case 'analyzing':
+        return `Analizando partido ${progress.current} de ${progress.total}...`;
+      case 'complete':
+        return '¡Picks listos!';
+      case 'error':
+        return 'Error al cargar picks';
+      default:
+        return 'Preparando tus mejores picks del día...';
+    }
+  };
+
+  // Estado de carga con progreso detallado
   if (isLoading) {
     return (
       <div className="bg-gradient-to-r from-foreground/5 via-foreground/3 to-foreground/5 rounded-2xl p-4 sm:p-6">
@@ -53,39 +122,38 @@ export function TripleCrownPanel({
             <div>
               <h2 className="text-lg sm:text-xl font-semibold text-foreground">Triple Corona VIP</h2>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                {analyzingProgress 
-                  ? `Analizando partido ${analyzingProgress.current} de ${analyzingProgress.total}...`
-                  : 'Buscando los mejores picks...'
-                }
+                {getProgressMessage()}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Progress Bar */}
-        {analyzingProgress && (
+        {/* Progress Bar - Solo si hay progreso real */}
+        {progress && progress.phase !== 'idle' && (
           <div className="mb-4 sm:mb-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground truncate pr-2">
-                {analyzingProgress.matchName}
+              <span className="text-sm text-muted-foreground">
+                {progress.phase === 'selecting' ? 'Seleccionando...' : 
+                 progress.phase === 'analyzing' ? 'Analizando...' : 'Cargando...'}
               </span>
-              <span className="text-sm font-medium text-foreground tabular-nums flex-shrink-0">
-                {Math.round((analyzingProgress.current / analyzingProgress.total) * 100)}%
+              <span className="text-sm font-medium text-foreground tabular-nums">
+                {Math.round((progress.current / progress.total) * 100)}%
               </span>
             </div>
             <div className="h-2 bg-secondary rounded-full overflow-hidden">
               <div 
                 className="h-full bg-[#FF5A5F] rounded-full transition-all duration-300"
-                style={{ width: `${(analyzingProgress.current / analyzingProgress.total) * 100}%` }}
+                style={{ width: `${(progress.current / progress.total) * 100}%` }}
               />
             </div>
           </div>
         )}
         
+        {/* Skeletons premium */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="skeleton h-64 sm:h-72 rounded-xl" />
-          ))}
+          <PickSkeleton />
+          <PickSkeleton />
+          <PickSkeleton />
         </div>
       </div>
     );
@@ -138,9 +206,22 @@ export function TripleCrownPanel({
           </div>
           <div>
             <h2 className="text-lg sm:text-xl font-semibold text-foreground">Triple Corona VIP</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              {picks.length} {picks.length === 1 ? 'pick seleccionado' : 'picks seleccionados'}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                {picks.length} {picks.length === 1 ? 'pick seleccionado' : 'picks seleccionados'}
+              </p>
+              {/* Badge de estado */}
+              {cacheStatus === 'fresh' && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                  ✨ En tiempo real
+                </span>
+              )}
+              {cacheStatus === 'cached' && generatedAt && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                  ⚡ Caché
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
@@ -167,13 +248,14 @@ export function TripleCrownPanel({
         </div>
       )}
       
-      {/* Picks Grid - Single column on mobile, 3 columns on desktop */}
+      {/* Picks Grid - Con animación de entrada */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
         {picks.map((pick, index) => (
           <div
             key={pick.match.id}
             className={`relative bg-gradient-to-br ${rankColors[index]} border rounded-xl p-4 sm:p-5
-                        transition-all duration-200 hover:shadow-md`}
+                        transition-all duration-300 hover:shadow-md animate-fade-in-slide`}
+            style={{ animationDelay: `${index * 100}ms` }}
           >
             {/* Rank Badge */}
             <div className="absolute -top-2 -left-2 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white shadow-md
@@ -291,8 +373,18 @@ export function TripleCrownPanel({
       
       {/* Generated time - Desktop */}
       {generatedAt && (
-        <div className="hidden sm:block text-xs text-muted-foreground/60 mt-4 text-right">
-          Actualizado: {formatTimestamp(generatedAt)}
+        <div className="hidden sm:flex sm:items-center sm:justify-between text-xs text-muted-foreground/60 mt-4">
+          <span>
+            {cacheStatus === 'cached' ? '⚡ Actualizado' : '✨ Actualizado'}: {formatTimestamp(generatedAt)}
+          </span>
+          {cacheStatus === 'cached' && (
+            <button
+              onClick={onRefresh}
+              className="text-[#FF5A5F] hover:text-[#E14B50] font-medium transition-colors"
+            >
+              Actualizar ahora
+            </button>
+          )}
         </div>
       )}
     </div>

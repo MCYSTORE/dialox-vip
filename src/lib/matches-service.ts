@@ -7,7 +7,7 @@ import { Match, Sport } from './types';
 import { matches as mockMatches } from './data';
 import { 
   fetchOddsForSport,
-  fetchOddsForMatch,
+  fetchDetailedOdds,
   transformOddsMatch,
   extractBestOdds,
   getAPICounterStatus,
@@ -109,7 +109,8 @@ export async function getOddsForTop3(
   // Obtener cuotas solo para los partidos especificados
   for (const matchId of matchIds.slice(0, 3)) { // Máximo 3 partidos
     try {
-      const oddsMatch = await fetchOddsForMatch(matchId);
+      // Usar la función correcta con sportKey
+      const oddsMatch = await fetchDetailedOdds('soccer_epl', matchId);
       if (oddsMatch) {
         const odds = extractBestOdds(oddsMatch);
         oddsMap.set(matchId, {
