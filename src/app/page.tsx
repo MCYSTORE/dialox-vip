@@ -195,6 +195,8 @@ export default function Home() {
   // ============================================
   const analyzeMatch = useCallback(async (match: Match): Promise<Analysis | null> => {
     try {
+      console.log('[FRONTEND] Starting analysis for match:', match.id);
+      
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -204,14 +206,20 @@ export default function Home() {
         }),
       });
       
+      console.log('[FRONTEND] Response status:', response.status);
+      
       const data = await response.json();
+      console.log('[FRONTEND] Response data:', JSON.stringify(data, null, 2));
       
       if (data.success && data.data) {
+        console.log('[FRONTEND] Analysis successful, returning data');
         return data.data;
       }
+      
+      console.log('[FRONTEND] Analysis failed:', data.error || 'Unknown error');
       return null;
     } catch (error) {
-      console.error('Error analyzing match:', error);
+      console.error('[FRONTEND] Error analyzing match:', error);
       return null;
     }
   }, []);
@@ -220,6 +228,8 @@ export default function Home() {
   // HANDLE ANALYZE
   // ============================================
   const handleAnalyze = useCallback(async (match: Match) => {
+    console.log('[FRONTEND] handleAnalyze called for match:', match.id);
+    
     setSelectedMatch(match);
     setIsAnalyzing(true);
     setAnalysis(null);
@@ -231,13 +241,17 @@ export default function Home() {
     
     const result = await analyzeMatch(match);
     
+    console.log('[FRONTEND] analyzeMatch result:', result ? 'SUCCESS' : 'NULL');
+    
     setAnalysisStage('validating');
     await new Promise(r => setTimeout(r, 500));
     
     if (result) {
+      console.log('[FRONTEND] Setting analysis and stage to complete');
       setAnalysis(result);
       setAnalysisStage('complete');
     } else {
+      console.log('[FRONTEND] Setting stage to error');
       setAnalysisStage('error');
     }
     

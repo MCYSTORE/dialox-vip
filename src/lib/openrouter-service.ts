@@ -185,6 +185,7 @@ Proporciona:
 6. Datos relevantes adicionales`;
 
   try {
+    console.log('[PERPLEXITY] Calling API for search...');
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
@@ -205,15 +206,22 @@ Proporciona:
     });
 
     if (!response.ok) {
-      console.error(`Perplexity API error: ${response.status}`);
+      console.error(`[PERPLEXITY] API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`[PERPLEXITY] Error body:`, errorText);
       return generateMockSearchResult(params);
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || generateMockSearchResult(params);
+    const content = data.choices?.[0]?.message?.content || '';
+    
+    console.log('[PERPLEXITY] Response length:', content.length);
+    console.log('[PERPLEXITY] Response preview:', content.substring(0, 200));
+    
+    return content || generateMockSearchResult(params);
     
   } catch (error) {
-    console.error('Error calling Perplexity:', error);
+    console.error('[PERPLEXITY] Error calling API:', error);
     return generateMockSearchResult(params);
   }
 }
@@ -259,6 +267,7 @@ ${params.searchReport}
 Analiza este partido y devuelve SOLO el JSON con tu análisis siguiendo el esquema obligatorio.`;
 
   try {
+    console.log('[DEEPSEEK] Calling API for analysis...');
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
@@ -279,17 +288,25 @@ Analiza este partido y devuelve SOLO el JSON con tu análisis siguiendo el esque
     });
 
     if (!response.ok) {
-      console.error(`DeepSeek API error: ${response.status}`);
+      console.error(`[DEEPSEEK] API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`[DEEPSEEK] Error body:`, errorText);
       return generateMockAnalysis(params);
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || generateMockAnalysis(params);
+    const rawContent = data.choices?.[0]?.message?.content || '';
     
-    return cleanJsonResponse(content);
+    console.log('[DEEPSEEK] Raw response length:', rawContent.length);
+    console.log('[DEEPSEEK] Raw response preview:', rawContent.substring(0, 300));
+    
+    const cleaned = cleanJsonResponse(rawContent);
+    console.log('[DEEPSEEK] Cleaned response preview:', cleaned.substring(0, 200));
+    
+    return cleaned;
     
   } catch (error) {
-    console.error('Error calling DeepSeek:', error);
+    console.error('[DEEPSEEK] Error calling API:', error);
     return generateMockAnalysis(params);
   }
 }
@@ -333,6 +350,19 @@ export async function runAnalysisPipeline(params: {
 // ============================================
 function cleanJsonResponse(content: string): string {
   let cleaned = content.trim();
+  
+  // Remove DeepSeek R1 reasoning tags (common issue)
+  // DeepSeek R1 uses <think_> or similar tags for internal reasoning
+  cleaned = cleaned.replace(/ occurred[\s\S]*?<\s*\/\s*think\s*>/gi, '');
+  cleaned = cleaned.replace(/ isOpen[\s\S]*?<\s*\/\s*think\s*>/gi, '');
+  cleaned = cleaned.replace(/<think[^>]*>[\s\S]*?<\s*\/\s*think\s*>/gi, '');
+  cleaned = cleaned.replace(/<reasoning[^>]*>[\s\S]*?<\s*\/\s*reasoning\s*>/gi, '');
+  
+  // Find the JSON object in the response
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    cleaned = jsonMatch[0];
+  }
   
   if (cleaned.startsWith('```json')) {
     cleaned = cleaned.replace(/^```json\s*/i, '');

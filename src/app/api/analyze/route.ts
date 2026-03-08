@@ -65,6 +65,7 @@ export async function POST(request: Request) {
     }
     
     // Run the full AI pipeline (Perplexity + DeepSeek R1)
+    console.log('[ANALYZE] Starting pipeline for match:', match.id);
     const pipelineResult = await runAnalysisPipeline({
       homeTeam: match.homeTeam.name,
       awayTeam: match.awayTeam.name,
@@ -78,11 +79,16 @@ export async function POST(request: Request) {
       },
     });
     
+    console.log('[ANALYZE] Pipeline completed. Source:', pipelineResult.source);
+    console.log('[ANALYZE] Raw analysis length:', pipelineResult.analysis.length);
+    console.log('[ANALYZE] Raw analysis preview:', pipelineResult.analysis.substring(0, 200));
+    
     // Parse the analysis JSON
     let analysisResult: Analysis;
     
     try {
       const parsedAnalysis = JSON.parse(pipelineResult.analysis);
+      console.log('[ANALYZE] JSON parsed successfully');
       
       // Transform to our Analysis type
       analysisResult = {
@@ -107,7 +113,8 @@ export async function POST(request: Request) {
         analisis_vip: parsedAnalysis.analisis_vip || 'Análisis no disponible',
       };
     } catch (parseError) {
-      console.error('Error parsing AI analysis, using fallback:', parseError);
+      console.error('[ANALYZE] JSON parse error:', parseError);
+      console.error('[ANALYZE] Failed to parse:', pipelineResult.analysis.substring(0, 500));
       
       // Fallback to mock analysis
       analysisResult = generateAnalysis(match);
