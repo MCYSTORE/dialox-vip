@@ -45,6 +45,14 @@ export interface Match {
   isLive: boolean;
 }
 
+// Edge Detectado
+export interface EdgeDetectado {
+  mercado: string | null;
+  prob_implicita: number | null;
+  prob_estimada: number | null;
+  edge_pct: number | null;
+}
+
 // Jugada Principal
 export interface JugadaPrincipal {
   mercado: string;
@@ -57,7 +65,7 @@ export interface JugadaPrincipal {
 export interface MercadosEspecificos {
   ambos_anotan: { valor: string | null; confianza: number };
   corners_prevision: { valor: string | null; confianza: number };
-  valor_extra_basket_baseball: { mercado: string | null; valor: string | null; confianza: number };
+  valor_extra: { mercado: string | null; valor: string | null; confianza: number };
 }
 
 // Analysis
@@ -70,8 +78,10 @@ export interface Analysis {
   favorito_ganar: string | null;
   marcador_estimado: string;
   jugada_principal: JugadaPrincipal;
+  edge_detectado: EdgeDetectado;
   mercados_especificos: MercadosEspecificos;
   analisis_vip: string;
+  contexto: string | null;
 }
 
 // History Entry

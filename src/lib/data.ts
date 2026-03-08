@@ -127,7 +127,8 @@ export function generateAnalysis(match: Match): Analysis {
   
   const favorito = match.odds.home < match.odds.away ? match.homeTeam.name : match.awayTeam.name;
   const favoritoOdds = match.odds.home < match.odds.away ? match.odds.home : match.odds.away;
-  const confianza = Math.min(Math.max(homeWinProb, awayWinProb), 75);
+  const confianzaPct = Math.min(Math.max(homeWinProb, awayWinProb), 75);
+  const confianza = Math.min(Math.max(Math.round(confianzaPct / 10), 1), 10); // Convertir a escala 1-10
   
   const marcador_estimado = sport === 'soccer' ? '2 - 1' : sport === 'basketball' ? '108 - 102' : '5 - 3';
   
@@ -143,15 +144,22 @@ export function generateAnalysis(match: Match): Analysis {
       mercado: favorito === match.homeTeam.name ? 'Victoria Local' : 'Victoria Visitante',
       cuota: favoritoOdds,
       confianza,
-      justificacion: `Análisis basado en cuotas implícitas. ${favorito} muestra ventaja estadística con ${confianza}% de confianza.`,
+      justificacion: `Análisis basado en cuotas implícitas. ${favorito} muestra ventaja estadística con confianza ${confianza}/10.`,
+    },
+    edge_detectado: {
+      mercado: favorito === match.homeTeam.name ? 'Victoria Local' : 'Victoria Visitante',
+      prob_implicita: confianzaPct,
+      prob_estimada: confianzaPct + 5,
+      edge_pct: 5.0,
     },
     mercados_especificos: {
-      ambos_anotan: sport === 'soccer' ? { valor: 'Sí', confianza: 55 } : { valor: null, confianza: 0 },
-      corners_prevision: sport === 'soccer' ? { valor: 'Alta', confianza: 50 } : { valor: null, confianza: 0 },
-      valor_extra_basket_baseball: sport !== 'soccer' 
-        ? { mercado: 'Total Points/Runs', valor: 'Over', confianza: 50 }
+      ambos_anotan: sport === 'soccer' ? { valor: 'Sí', confianza: 5 } : { valor: null, confianza: 0 },
+      corners_prevision: sport === 'soccer' ? { valor: 'Alta', confianza: 4 } : { valor: null, confianza: 0 },
+      valor_extra: sport !== 'soccer' 
+        ? { mercado: 'Total Points/Runs', valor: 'Over', confianza: 5 }
         : { mercado: null, valor: null, confianza: 0 },
     },
-    analisis_vip: `Análisis en modo fallback. Configure OPENROUTER_API_KEY para obtener análisis con IA real. El favorito según cuotas es ${favorito} con probabilidad implícita del ${confianza}%.`,
+    analisis_vip: `Análisis en modo fallback. Configure SERPER_API_KEY para obtener contexto real de partidos. El favorito según cuotas es ${favorito} con probabilidad implícita del ${confianzaPct}%. Sin información de lesiones, estado de forma o contexto adicional disponible.`,
+    contexto: null,
   };
 }

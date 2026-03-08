@@ -4,6 +4,17 @@ import { useEffect, useCallback } from 'react';
 import { Analysis, Match } from '@/lib/types';
 import { sportConfig } from '@/lib/data';
 
+// Helper para formatear timestamp
+function formatTimestamp(isoString: string): string {
+  const date = new Date(isoString);
+  return date.toLocaleString('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 interface AnalysisDrawerProps {
   match: Match | null;
   analysis: Analysis | null;
@@ -104,16 +115,16 @@ export function AnalysisDrawer({ match, analysis, isLoading, onClose, onSave }: 
                     </div>
                   </div>
                   
-                  {/* Confidence Bar */}
+                  {/* Confidence Bar - Scale 1-10 */}
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-xs text-muted-foreground">Confianza</span>
-                      <span className="text-sm font-medium text-foreground">{analysis.jugada_principal.confianza}%</span>
+                      <span className="text-sm font-medium text-foreground">{analysis.jugada_principal.confianza}/10</span>
                     </div>
                     <div className="h-2.5 bg-secondary rounded-full overflow-hidden">
                       <div
                         className="h-full bg-[#16A34A] rounded-full transition-all duration-700 ease-out"
-                        style={{ width: `${analysis.jugada_principal.confianza}%` }}
+                        style={{ width: `${Math.min(analysis.jugada_principal.confianza * 10, 100)}%` }}
                       />
                     </div>
                   </div>
@@ -139,12 +150,38 @@ export function AnalysisDrawer({ match, analysis, isLoading, onClose, onSave }: 
                   </div>
                 </div>
 
-                {/* Specific Markets - Soccer */}
-                {analysis.deporte === 'soccer' && analysis.mercados_especificos && (
+                {/* Edge Detectado */}
+                {analysis.edge_detectado && analysis.edge_detectado.mercado && (
+                  <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3">
+                    <p className="text-xs text-blue-600 uppercase tracking-wide mb-2 font-medium">Edge Detectado</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Mercado:</span>
+                        <span className="ml-1 font-medium text-foreground">{analysis.edge_detectado.mercado}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Edge:</span>
+                        <span className="ml-1 font-medium text-green-600">{analysis.edge_detectado.edge_pct?.toFixed(1)}%</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Prob. Implícita:</span>
+                        <span className="ml-1 font-medium text-foreground">{analysis.edge_detectado.prob_implicita?.toFixed(1)}%</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Prob. Estimada:</span>
+                        <span className="ml-1 font-medium text-foreground">{analysis.edge_detectado.prob_estimada?.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Specific Markets - All Sports */}
+                {analysis.mercados_especificos && (
                   <div className="bg-white rounded-xl p-4 border border-border/50 space-y-3">
                     <h4 className="text-sm font-medium text-foreground">Mercados Específicos</h4>
                     
-                    {analysis.mercados_especificos.ambos_anotan?.valor && (
+                    {/* Ambos Anotan - Soccer only */}
+                    {analysis.deporte === 'soccer' && analysis.mercados_especificos.ambos_anotan?.valor && (
                       <div className="flex items-center justify-between py-2 border-b border-border/50">
                         <span className="text-sm text-muted-foreground">Ambos Anotan</span>
                         <div className="flex items-center gap-2">
@@ -152,46 +189,43 @@ export function AnalysisDrawer({ match, analysis, isLoading, onClose, onSave }: 
                             {analysis.mercados_especificos.ambos_anotan.valor}
                           </span>
                           <span className="text-xs text-muted-foreground/70 tabular-nums">
-                            ({analysis.mercados_especificos.ambos_anotan.confianza}%)
+                            ({analysis.mercados_especificos.ambos_anotan.confianza}/10)
                           </span>
                         </div>
                       </div>
                     )}
                     
-                    {analysis.mercados_especificos.corners_prevision?.valor && (
-                      <div className="flex items-center justify-between py-2">
+                    {/* Córners - Soccer only */}
+                    {analysis.deporte === 'soccer' && analysis.mercados_especificos.corners_prevision?.valor && (
+                      <div className="flex items-center justify-between py-2 border-b border-border/50">
                         <span className="text-sm text-muted-foreground">Córners</span>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-foreground">
                             {analysis.mercados_especificos.corners_prevision.valor}
                           </span>
                           <span className="text-xs text-muted-foreground/70 tabular-nums">
-                            ({analysis.mercados_especificos.corners_prevision.confianza}%)
+                            ({analysis.mercados_especificos.corners_prevision.confianza}/10)
                           </span>
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
-
-                {/* Specific Markets - Basketball/Baseball */}
-                {(analysis.deporte === 'basketball' || analysis.deporte === 'baseball') && 
-                 analysis.mercados_especificos?.valor_extra_basket_baseball?.mercado && (
-                  <div className="bg-white rounded-xl p-4 border border-border/50 space-y-3">
-                    <h4 className="text-sm font-medium text-foreground">Valor Extra</h4>
-                    <div className="flex items-center justify-between py-2">
-                      <span className="text-sm text-muted-foreground">
-                        {analysis.mercados_especificos.valor_extra_basket_baseball.mercado}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">
-                          {analysis.mercados_especificos.valor_extra_basket_baseball.valor}
+                    
+                    {/* Valor Extra - All Sports */}
+                    {analysis.mercados_especificos.valor_extra?.mercado && (
+                      <div className="flex items-center justify-between py-2 border-b border-border/50">
+                        <span className="text-sm text-muted-foreground">
+                          {analysis.mercados_especificos.valor_extra.mercado}
                         </span>
-                        <span className="text-xs text-muted-foreground/70 tabular-nums">
-                          ({analysis.mercados_especificos.valor_extra_basket_baseball.confianza}%)
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground">
+                            {analysis.mercados_especificos.valor_extra.valor}
+                          </span>
+                          <span className="text-xs text-muted-foreground/70 tabular-nums">
+                            ({analysis.mercados_especificos.valor_extra.confianza}/10)
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
 
@@ -202,6 +236,17 @@ export function AnalysisDrawer({ match, analysis, isLoading, onClose, onSave }: 
                     {analysis.analisis_vip}
                   </p>
                 </div>
+
+                {/* Timestamp */}
+                {analysis.timestamp && (
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground/60">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    <span>Análisis generado: {formatTimestamp(analysis.timestamp)}</span>
+                  </div>
+                )}
 
                 {/* Save Button */}
                 <button
