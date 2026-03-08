@@ -7,10 +7,23 @@ interface TripleCrownPanelProps {
   picks: CrownPick[];
   isLoading: boolean;
   onRefresh: () => void;
+  onAutoAnalyze: () => void;
   generatedAt?: string;
+  autoAnalyzeProgress?: {
+    current: number;
+    total: number;
+    matchName: string;
+  };
 }
 
-export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: TripleCrownPanelProps) {
+export function TripleCrownPanel({ 
+  picks, 
+  isLoading, 
+  onRefresh, 
+  onAutoAnalyze,
+  generatedAt,
+  autoAnalyzeProgress
+}: TripleCrownPanelProps) {
   const rankIcons = ['🥇', '🥈', '🥉'];
   const rankColors = [
     'from-yellow-400/15 to-amber-500/5 border-yellow-400/25',
@@ -23,7 +36,8 @@ export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: T
     estable: 'bg-purple-50 text-purple-700 border-purple-200',
   };
 
-  if (isLoading) {
+  // Loading state for initial load
+  if (isLoading && picks.length === 0) {
     return (
       <div className="bg-gradient-to-r from-foreground/5 via-foreground/3 to-foreground/5 rounded-2xl p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4 sm:mb-5">
@@ -46,42 +60,144 @@ export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: T
     );
   }
 
-  if (picks.length === 0) {
+  // Auto-analyze progress state
+  if (autoAnalyzeProgress && autoAnalyzeProgress.current > 0) {
     return (
       <div className="bg-gradient-to-r from-foreground/5 via-foreground/3 to-foreground/5 rounded-2xl p-4 sm:p-6">
-        <div className="flex items-center gap-2.5 sm:gap-3 mb-3 sm:mb-4">
+        {/* Header */}
+        <div className="flex items-center gap-2.5 sm:gap-3 mb-5">
           <div className="w-8 h-8 rounded-lg bg-[#FF5A5F]/10 flex items-center justify-center">
             <span className="text-lg">👑</span>
           </div>
           <div>
             <h2 className="text-lg sm:text-xl font-semibold text-foreground">Triple Corona VIP</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground">Sin picks disponibles</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Analizando mejores oportunidades...
+            </p>
+          </div>
+        </div>
+        
+        {/* Progress */}
+        <div className="bg-white/60 rounded-xl p-5 border border-border/50">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FF5A5F]/10 flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" className="text-[#FF5A5F] spinner">
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    strokeLinecap="round"
+                    opacity="0.25"
+                  />
+                  <path
+                    d="M12 2a10 10 0 0 1 10 10"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  Analizando {autoAnalyzeProgress.current}/{autoAnalyzeProgress.total}
+                </p>
+                <p className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-[280px]">
+                  {autoAnalyzeProgress.matchName}
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-[#FF5A5F] rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${(autoAnalyzeProgress.current / autoAnalyzeProgress.total) * 100}%` }}
+              />
+            </div>
+            
+            {/* Progress Dots */}
+            <div className="flex items-center justify-center gap-3">
+              {[1, 2, 3].map((i) => (
+                <div 
+                  key={i}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                    i < autoAnalyzeProgress.current 
+                      ? 'bg-[#16A34A]' 
+                      : i === autoAnalyzeProgress.current 
+                        ? 'bg-[#FF5A5F] animate-pulse' 
+                        : 'bg-secondary'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state with call to action
+  if (picks.length === 0) {
+    return (
+      <div className="bg-gradient-to-r from-foreground/5 via-foreground/3 to-foreground/5 rounded-2xl p-4 sm:p-6">
+        <div className="flex items-center gap-2.5 sm:gap-3 mb-4">
+          <div className="w-8 h-8 rounded-lg bg-[#FF5A5F]/10 flex items-center justify-center">
+            <span className="text-lg">👑</span>
+          </div>
+          <div>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">Triple Corona VIP</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">Tus 3 mejores picks del día</p>
           </div>
         </div>
         
         <div className="bg-white/60 rounded-xl p-6 sm:p-8 text-center border border-border/50">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-3 sm:mb-4 rounded-full bg-secondary flex items-center justify-center">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M8 12h8M12 8v8" />
-            </svg>
+          <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-4 rounded-2xl bg-[#FF5A5F]/5 flex items-center justify-center">
+            <span className="text-2xl sm:text-3xl">👑</span>
           </div>
-          <p className="text-sm text-muted-foreground mb-4 px-2">
-            No hay picks que cumplan con los criterios mínimos de confianza
+          
+          {/* Progress indicator */}
+          <div className="flex items-center justify-center gap-2 mb-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
+                <span className="text-xs text-muted-foreground">{i}</span>
+              </div>
+            ))}
+          </div>
+          
+          <p className="text-sm sm:text-base font-medium text-foreground mb-2">
+            Activa tu Triple Corona VIP
           </p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-5 px-4">
+            Presiona Auto-analizar para encontrar los 3 mejores picks del día
+          </p>
+          
           <button
-            onClick={onRefresh}
-            className="h-11 min-h-[44px] px-5 bg-foreground text-white rounded-xl text-sm font-medium
-                       transition-all duration-200 hover:bg-foreground/90 active:scale-95
-                       focus:outline-none focus:ring-2 focus:ring-foreground/20"
+            onClick={onAutoAnalyze}
+            disabled={isLoading}
+            className="h-11 sm:h-12 min-h-[44px] px-6 sm:px-8 bg-[#FF5A5F] text-white rounded-xl text-sm font-medium
+                       transition-all duration-200 hover:bg-[#E14B50] active:scale-[0.98]
+                       focus:outline-none focus:ring-2 focus:ring-[#FF5A5F]/25
+                       disabled:opacity-60 disabled:cursor-not-allowed
+                       flex items-center justify-center gap-2 mx-auto"
           >
-            Analizar partidos
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+            Auto-analizar Top 3
           </button>
         </div>
       </div>
     );
   }
 
+  // Has picks
   return (
     <div className="bg-gradient-to-r from-foreground/5 via-foreground/3 to-foreground/5 rounded-2xl p-4 sm:p-6">
       {/* Header */}
@@ -98,20 +214,22 @@ export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: T
           </div>
         </div>
         
-        <button
-          onClick={onRefresh}
-          className="h-9 px-3 sm:px-4 bg-white border border-border rounded-xl text-sm font-medium
-                     text-muted-foreground hover:bg-secondary transition-colors active:scale-95
-                     focus:outline-none focus:ring-2 focus:ring-[#FF5A5F]/15"
-        >
-          <span className="hidden sm:inline">Actualizar</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sm:hidden">
-            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-            <path d="M16 16h5v5" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onAutoAnalyze}
+            disabled={isLoading}
+            className="h-9 px-3 sm:px-4 bg-[#FF5A5F] text-white rounded-xl text-xs sm:text-sm font-medium
+                       transition-all duration-200 hover:bg-[#E14B50] active:scale-95
+                       focus:outline-none focus:ring-2 focus:ring-[#FF5A5F]/25
+                       disabled:opacity-60 disabled:cursor-not-allowed
+                       flex items-center gap-1.5"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+            <span className="hidden sm:inline">Actualizar</span>
+          </button>
+        </div>
       </div>
       
       {/* Generated time - Mobile */}
@@ -121,7 +239,7 @@ export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: T
         </div>
       )}
       
-      {/* Picks Grid - Single column on mobile, 3 columns on desktop */}
+      {/* Picks Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
         {picks.map((pick, index) => (
           <div
@@ -129,13 +247,13 @@ export function TripleCrownPanel({ picks, isLoading, onRefresh, generatedAt }: T
             className={`relative bg-gradient-to-br ${rankColors[index]} border rounded-xl p-3.5 sm:p-4
                         transition-all duration-200 hover:shadow-md active:scale-[0.98]`}
           >
-            {/* Rank Badge - Position absolute */}
+            {/* Rank Badge */}
             <div className="absolute -top-1.5 -left-1.5 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white shadow-sm
                             flex items-center justify-center text-base sm:text-lg">
               {rankIcons[index]}
             </div>
             
-            {/* Badge - Top right */}
+            {/* Badge */}
             <div className="flex justify-end mb-2">
               <span className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full border ${badgeColors[pick.badge]}`}>
                 {badgeLabels[pick.badge].label}

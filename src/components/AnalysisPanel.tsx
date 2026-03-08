@@ -1,6 +1,6 @@
 'use client';
 
-import { Analysis, Match } from '@/lib/types';
+import { Analysis, Match, AnalysisStage } from '@/lib/types';
 import { sportConfig } from '@/lib/data';
 
 interface AnalysisPanelProps {
@@ -9,9 +9,62 @@ interface AnalysisPanelProps {
   isLoading: boolean;
   onClose: () => void;
   onSave: () => void;
+  stage?: AnalysisStage;
 }
 
-export function AnalysisPanel({ match, analysis, isLoading, onClose, onSave }: AnalysisPanelProps) {
+const stageConfig: Record<AnalysisStage, { message: string; icon: React.ReactNode }> = {
+  idle: { 
+    message: 'Preparando análisis...', 
+    icon: null 
+  },
+  searching: { 
+    message: 'Buscando contexto con Perplexity...', 
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="spinner">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+      </svg>
+    )
+  },
+  analyzing: { 
+    message: 'Analizando con DeepSeek R1...', 
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="spinner">
+        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    )
+  },
+  validating: { 
+    message: 'Validando análisis...', 
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="spinner">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+        <polyline points="22 4 12 14.01 9 11.01" />
+      </svg>
+    )
+  },
+  complete: { 
+    message: 'Análisis listo', 
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+        <polyline points="22 4 12 14.01 9 11.01" />
+      </svg>
+    )
+  },
+  error: { 
+    message: 'Error en el análisis', 
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 8v4m0 4h.01" />
+      </svg>
+    )
+  },
+};
+
+export function AnalysisPanel({ match, analysis, isLoading, onClose, onSave, stage = 'idle' }: AnalysisPanelProps) {
   if (!match && !isLoading) return null;
 
   return (
@@ -40,6 +93,44 @@ export function AnalysisPanel({ match, analysis, isLoading, onClose, onSave }: A
       <div className="p-4 sm:p-5">
         {isLoading ? (
           <div className="space-y-4">
+            {/* Stage Progress */}
+            <div className="bg-secondary/30 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  stage === 'error' ? 'bg-red-50 text-red-500' : 'bg-[#FF5A5F]/10 text-[#FF5A5F]'
+                }`}>
+                  {stageConfig[stage].icon}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {stageConfig[stage].message}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {stage === 'searching' && 'Obteniendo noticias y contexto...'}
+                    {stage === 'analyzing' && 'Procesando con IA avanzada...'}
+                    {stage === 'validating' && 'Verificando coherencia...'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Stage indicators */}
+              <div className="flex items-center gap-1.5">
+                {(['searching', 'analyzing', 'validating'] as AnalysisStage[]).map((s, i) => (
+                  <div 
+                    key={s}
+                    className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
+                      stage === s 
+                        ? 'bg-[#FF5A5F] animate-pulse' 
+                        : ['searching', 'analyzing', 'validating'].indexOf(stage) > i
+                          ? 'bg-[#16A34A]'
+                          : 'bg-secondary'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* Skeleton placeholders */}
             <div className="flex items-center justify-between">
               <div className="skeleton h-8 w-32" />
               <div className="skeleton h-6 w-16" />
@@ -47,7 +138,6 @@ export function AnalysisPanel({ match, analysis, isLoading, onClose, onSave }: A
             <div className="skeleton h-4 w-full" />
             <div className="skeleton h-4 w-3/4" />
             <div className="skeleton h-20 w-full rounded-xl" />
-            <div className="skeleton h-16 w-full rounded-xl" />
           </div>
         ) : analysis ? (
           <div className="space-y-5">

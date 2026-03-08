@@ -14,8 +14,8 @@ import {
   fetchAllOdds,
   transformOddsMatch,
   extractBestOdds,
+  type OddsAPIMatch,
 } from './odds-api';
-import type { OddsAPIMatch } from './odds-api';
 
 // ============================================
 // MAIN FUNCTION: Get all matches

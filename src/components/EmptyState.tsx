@@ -11,7 +11,43 @@ export function EmptyState() {
       </div>
       <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2">Sin resultados</h3>
       <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed px-4">
-        No se encontraron partidos con los filtros actuales. Intenta con otra búsqueda o cambia el filtro.
+        No se encontraron partidos con los filtros actuales. Intenta con otra búsqueda o cambia los filtros.
+      </p>
+    </div>
+  );
+}
+
+export function EmptyDateState({ dateLabel }: { dateLabel: string }) {
+  return (
+    <div className="bg-white border border-border rounded-2xl p-8 sm:p-12 text-center">
+      <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-4 sm:mb-5 rounded-full bg-secondary flex items-center justify-center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground sm:w-7 sm:h-7">
+          <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+          <line x1="16" x2="16" y1="2" y2="6" />
+          <line x1="8" x2="8" y1="2" y2="6" />
+          <line x1="3" x2="21" y1="10" y2="10" />
+        </svg>
+      </div>
+      <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2">No hay partidos</h3>
+      <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed px-4">
+        No hay partidos programados para <span className="font-medium text-foreground">{dateLabel}</span>
+      </p>
+    </div>
+  );
+}
+
+export function EmptySearchState({ query }: { query: string }) {
+  return (
+    <div className="bg-white border border-border rounded-2xl p-8 sm:p-12 text-center">
+      <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-4 sm:mb-5 rounded-full bg-secondary flex items-center justify-center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground sm:w-7 sm:h-7">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+      </div>
+      <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2">Sin resultados</h3>
+      <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed px-4">
+        No se encontraron resultados para <span className="font-medium text-foreground">&quot;{query}&quot;</span>
       </p>
     </div>
   );

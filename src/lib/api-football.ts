@@ -3,6 +3,8 @@
 // https://api-football-v1.p.rapidapi.com
 // ============================================
 
+import { MatchStatus } from './types';
+
 interface APIFootballFixture {
   fixture: {
     id: number;

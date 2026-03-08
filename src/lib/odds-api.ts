@@ -22,7 +22,7 @@ interface OddsAPIBookmaker {
   markets: OddsAPIMarket[];
 }
 
-interface OddsAPIMatch {
+export interface OddsAPIMatch {
   id: string;
   sport_key: string;
   sport_title: string;

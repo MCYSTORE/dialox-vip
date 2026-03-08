@@ -36,9 +36,10 @@ export function MatchCard({ match, onAnalyze, isAnalyzing, isSelected }: MatchCa
         </div>
         
         {match.isLive ? (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FF5A5F]/10 flex-shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A5F] animate-pulse" />
-            <span className="text-xs font-medium text-[#FF5A5F]">EN VIVO</span>
+          <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#FF5A5F] flex-shrink-0
+                          shadow-sm shadow-[#FF5A5F]/20">
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            <span className="text-xs font-bold text-white tracking-wide">EN VIVO</span>
           </div>
         ) : (
           <span className="text-xs text-muted-foreground/70 flex-shrink-0 text-right">
